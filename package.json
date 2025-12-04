@@ -1,0 +1,31 @@
+{
+  "name": "com.multiversed.sdk",
+  "version": "1.0.0",
+  "displayName": "Multiversed SDK",
+  "description": "Integrate Multiversed tournaments, wallet connection, and leaderboards into your Unity game.",
+  "unity": "2020.3",
+  "author": {
+    "name": "Multiversed",
+    "email": "support@multiversed.io",
+    "url": "https://multiversed.io"
+  },
+  "keywords": [
+    "blockchain",
+    "solana",
+    "tournaments",
+    "web3",
+    "gaming",
+    "phantom",
+    "wallet"
+  ],
+  "category": "SDK",
+  "license": "MIT",
+  "dependencies": {},
+  "samples": [
+    {
+      "displayName": "Basic Integration",
+      "description": "Simple example showing SDK initialization, wallet connection, and tournament listing",
+      "path": "Samples~/BasicIntegration"
+    }
+  ]
+}
