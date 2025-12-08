@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -34,15 +33,29 @@ namespace Multiversed.Core
         }
 
         /// <summary>
-        /// Update base URL based on environment
+        /// Update base URL based on environment or custom URL
         /// </summary>
         public void UpdateBaseUrl()
         {
-            _baseUrl = _config.Environment == SDKEnvironment.Mainnet
-                ? "https://api.multiversed.io"
-                : "https://devnet-api.multiversed.io";
+            // Check for custom URL first
+            if (!string.IsNullOrEmpty(_config.CustomApiUrl))
+            {
+                _baseUrl = _config.CustomApiUrl.TrimEnd('/');
+                SDKLogger.Log("API Base URL set to custom: " + _baseUrl);
+                return;
+            }
 
-            Logger.Log($"API Base URL set to: {_baseUrl}");
+            // Otherwise use environment
+            if (_config.Environment == SDKEnvironment.Mainnet)
+            {
+                _baseUrl = "https://api.multiversed.io";
+            }
+            else
+            {
+                _baseUrl = "https://devnet-api.multiversed.io";
+            }
+
+            SDKLogger.Log("API Base URL set to: " + _baseUrl);
         }
 
         /// <summary>
@@ -51,7 +64,7 @@ namespace Multiversed.Core
         public void SetCustomBaseUrl(string url)
         {
             _baseUrl = url.TrimEnd('/');
-            Logger.Log($"API Base URL overridden to: {_baseUrl}");
+            SDKLogger.Log("API Base URL overridden to: " + _baseUrl);
         }
 
         #region Public API Methods
@@ -66,11 +79,13 @@ namespace Multiversed.Core
                 if (success)
                 {
                     var result = JsonHelper.FromJson<ApiResponse>(response);
-                    callback?.Invoke(result?.success ?? false, result?.message ?? "Verification failed");
+                    bool isSuccess = result != null && result.success;
+                    string message = result != null ? result.message : "Verification failed";
+                    callback(isSuccess, message);
                 }
                 else
                 {
-                    callback?.Invoke(false, response);
+                    callback(false, response);
                 }
             });
         }
@@ -80,7 +95,7 @@ namespace Multiversed.Core
         /// </summary>
         public IEnumerator GetTournaments(TokenType tokenType, Action<Tournament[], string> callback)
         {
-            string url = $"{ENDPOINT_TOURNAMENTS}?tokenType={(int)tokenType}";
+            string url = ENDPOINT_TOURNAMENTS + "?tokenType=" + (int)tokenType;
 
             yield return GetRequest(url, (success, response) =>
             {
@@ -89,16 +104,22 @@ namespace Multiversed.Core
                     var result = JsonHelper.FromJson<TournamentListResponse>(response);
                     if (result != null && result.success)
                     {
-                        callback?.Invoke(result.tournaments, null);
+                        // Use "data" field instead of "tournaments"
+                        Tournament[] tournaments = result.data;
+                        if (tournaments == null)
+                        {
+                            tournaments = new Tournament[0];
+                        }
+                        callback(tournaments, null);
                     }
                     else
                     {
-                        callback?.Invoke(null, "Failed to parse tournaments");
+                        callback(null, "Failed to parse tournaments");
                     }
                 }
                 else
                 {
-                    callback?.Invoke(null, response);
+                    callback(null, response);
                 }
             });
         }
@@ -108,7 +129,7 @@ namespace Multiversed.Core
         /// </summary>
         public IEnumerator GetTournament(string tournamentId, TokenType tokenType, Action<Tournament, string> callback)
         {
-            string url = $"{ENDPOINT_TOURNAMENTS}/{tournamentId}?tokenType={(int)tokenType}";
+            string url = ENDPOINT_TOURNAMENTS + "/" + tournamentId + "?tokenType=" + (int)tokenType;
 
             yield return GetRequest(url, (success, response) =>
             {
@@ -117,16 +138,16 @@ namespace Multiversed.Core
                     var result = JsonHelper.FromJson<TournamentResponse>(response);
                     if (result != null && result.success)
                     {
-                        callback?.Invoke(result.tournament, null);
+                        callback(result.tournament, null);
                     }
                     else
                     {
-                        callback?.Invoke(null, "Failed to parse tournament");
+                        callback(null, "Failed to parse tournament");
                     }
                 }
                 else
                 {
-                    callback?.Invoke(null, response);
+                    callback(null, response);
                 }
             });
         }
@@ -156,16 +177,17 @@ namespace Multiversed.Core
                     var result = JsonHelper.FromJson<RegistrationResponse>(response);
                     if (result != null && result.success && !string.IsNullOrEmpty(result.transaction))
                     {
-                        callback?.Invoke(result.transaction, null);
+                        callback(result.transaction, null);
                     }
                     else
                     {
-                        callback?.Invoke(null, result?.message ?? "Failed to prepare registration");
+                        string errorMsg = result != null ? result.message : "Failed to prepare registration";
+                        callback(null, errorMsg);
                     }
                 }
                 else
                 {
-                    callback?.Invoke(null, response);
+                    callback(null, response);
                 }
             });
         }
@@ -193,11 +215,13 @@ namespace Multiversed.Core
                 if (success)
                 {
                     var result = JsonHelper.FromJson<RegistrationConfirmation>(response);
-                    callback?.Invoke(result?.success ?? false, result?.message ?? "Confirmation failed");
+                    bool isSuccess = result != null && result.success;
+                    string message = result != null ? result.message : "Confirmation failed";
+                    callback(isSuccess, message);
                 }
                 else
                 {
-                    callback?.Invoke(false, response);
+                    callback(false, response);
                 }
             });
         }
@@ -210,7 +234,7 @@ namespace Multiversed.Core
             TokenType tokenType,
             Action<LeaderboardEntry[], string> callback)
         {
-            string url = string.Format(ENDPOINT_LEADERBOARD, tournamentId) + $"?tokenType={(int)tokenType}";
+            string url = string.Format(ENDPOINT_LEADERBOARD, tournamentId) + "?tokenType=" + (int)tokenType;
 
             yield return GetRequest(url, (success, response) =>
             {
@@ -219,16 +243,16 @@ namespace Multiversed.Core
                     var result = JsonHelper.FromJson<LeaderboardResponse>(response);
                     if (result != null && result.success)
                     {
-                        callback?.Invoke(result.leaderboard, null);
+                        callback(result.leaderboard, null);
                     }
                     else
                     {
-                        callback?.Invoke(null, "Failed to parse leaderboard");
+                        callback(null, "Failed to parse leaderboard");
                     }
                 }
                 else
                 {
-                    callback?.Invoke(null, response);
+                    callback(null, response);
                 }
             });
         }
@@ -260,11 +284,13 @@ namespace Multiversed.Core
                 if (success)
                 {
                     var result = JsonHelper.FromJson<ApiResponse>(response);
-                    callback?.Invoke(result?.success ?? false, result?.message ?? "Score submission failed");
+                    bool isSuccess = result != null && result.success;
+                    string message = result != null ? result.message : "Score submission failed";
+                    callback(isSuccess, message);
                 }
                 else
                 {
-                    callback?.Invoke(false, response);
+                    callback(false, response);
                 }
             });
         }
@@ -285,7 +311,7 @@ namespace Multiversed.Core
                 AddAuthHeaders(request);
                 request.timeout = _config.RequestTimeoutSeconds;
 
-                Logger.Log($"GET {endpoint}");
+                SDKLogger.Log("GET " + endpoint);
 
                 yield return request.SendWebRequest();
 
@@ -297,3 +323,112 @@ namespace Multiversed.Core
         /// Make POST request
         /// </summary>
         private IEnumerator PostRequest(string endpoint, string jsonBody, Action<bool, string> callback)
+        {
+            string url = _baseUrl + endpoint;
+
+            using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
+            {
+                if (!string.IsNullOrEmpty(jsonBody))
+                {
+                    byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
+                    request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                }
+
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                AddAuthHeaders(request);
+                request.timeout = _config.RequestTimeoutSeconds;
+
+                SDKLogger.Log("POST " + endpoint);
+
+                yield return request.SendWebRequest();
+
+                HandleResponse(request, callback);
+            }
+        }
+
+        /// <summary>
+        /// Add authentication headers
+        /// </summary>
+        private void AddAuthHeaders(UnityWebRequest request)
+        {
+            if (_authManager.IsInitialized)
+            {
+                request.SetRequestHeader("x-api-key", _authManager.ApiKey);
+                request.SetRequestHeader("x-game-id", _authManager.GameId);
+            }
+        }
+
+        /// <summary>
+        /// Handle HTTP response
+        /// </summary>
+        private void HandleResponse(UnityWebRequest request, Action<bool, string> callback)
+        {
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string response = request.downloadHandler.text;
+                SDKLogger.Log("Response: " + TruncateForLog(response));
+                callback(true, response);
+            }
+            else
+            {
+                string error = "";
+                if (request.downloadHandler != null && !string.IsNullOrEmpty(request.downloadHandler.text))
+                {
+                    error = request.downloadHandler.text;
+                }
+                else
+                {
+                    error = request.error;
+                }
+
+                SDKLogger.LogError("Request failed: " + error);
+                callback(false, error);
+            }
+        }
+
+        /// <summary>
+        /// Truncate long strings for logging
+        /// </summary>
+        private string TruncateForLog(string text, int maxLength = 200)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+            {
+                return text;
+            }
+
+            return text.Substring(0, maxLength) + "...";
+        }
+
+        #endregion
+
+        #region Request Models
+
+        [Serializable]
+        private class RegistrationRequest
+        {
+            public string tournamentId;
+            public string userPublicKey;
+            public int tokenType;
+        }
+
+        [Serializable]
+        private class ConfirmRegistrationRequest
+        {
+            public string tournamentId;
+            public string signature;
+            public int tokenType;
+        }
+
+        [Serializable]
+        private class SubmitScoreRequest
+        {
+            public string tournamentId;
+            public string userPublicKey;
+            public int score;
+            public int tokenType;
+        }
+
+        #endregion
+    }
+}

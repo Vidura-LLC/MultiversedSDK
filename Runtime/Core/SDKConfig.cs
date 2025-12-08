@@ -12,6 +12,12 @@ namespace Multiversed.Core
         public SDKEnvironment Environment { get; set; } = SDKEnvironment.Devnet;
 
         /// <summary>
+        /// Custom API base URL (for local development)
+        /// If set, overrides the environment URL
+        /// </summary>
+        public string CustomApiUrl { get; set; } = null;
+
+        /// <summary>
         /// Custom URL scheme for deep link callbacks
         /// If null, defaults to "multiversed-{gameId}"
         /// </summary>

@@ -16,7 +16,11 @@ namespace Multiversed.Wallet
         public string WalletAddress { get; private set; }
         public string SessionToken { get; private set; }
         public string PhantomEncryptionPublicKey { get; private set; }
-        public bool IsConnected => !string.IsNullOrEmpty(WalletAddress);
+
+        public bool IsConnected
+        {
+            get { return !string.IsNullOrEmpty(WalletAddress); }
+        }
 
         /// <summary>
         /// Set wallet connection data
@@ -29,7 +33,7 @@ namespace Multiversed.Wallet
 
             SaveToPrefs();
 
-            Logger.Log($"Wallet connected: {GetShortAddress()}");
+            SDKLogger.Log("Wallet connected: " + GetShortAddress());
         }
 
         /// <summary>
@@ -43,7 +47,7 @@ namespace Multiversed.Wallet
 
             ClearPrefs();
 
-            Logger.Log("Wallet disconnected");
+            SDKLogger.Log("Wallet disconnected");
         }
 
         /// <summary>
@@ -57,7 +61,7 @@ namespace Multiversed.Wallet
 
             if (IsConnected)
             {
-                Logger.Log($"Loaded wallet session: {GetShortAddress()}");
+                SDKLogger.Log("Loaded wallet session: " + GetShortAddress());
             }
         }
 
@@ -97,7 +101,7 @@ namespace Multiversed.Wallet
             if (string.IsNullOrEmpty(WalletAddress) || WalletAddress.Length < prefixLength + suffixLength)
                 return WalletAddress;
 
-            return $"{WalletAddress.Substring(0, prefixLength)}...{WalletAddress.Substring(WalletAddress.Length - suffixLength)}";
+            return WalletAddress.Substring(0, prefixLength) + "..." + WalletAddress.Substring(WalletAddress.Length - suffixLength);
         }
     }
 }

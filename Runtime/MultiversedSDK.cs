@@ -39,59 +39,57 @@ namespace Multiversed
 
         #region Events
 
-        /// <summary>
-        /// Fired when SDK is initialized successfully
-        /// </summary>
         public event Action OnInitialized;
-
-        /// <summary>
-        /// Fired when an error occurs
-        /// </summary>
         public event Action<string> OnError;
-
-        /// <summary>
-        /// Fired when wallet is connected
-        /// </summary>
         public event Action<WalletSession> OnWalletConnected;
-
-        /// <summary>
-        /// Fired when wallet is disconnected
-        /// </summary>
         public event Action OnWalletDisconnected;
-
-        /// <summary>
-        /// Fired when tournament registration is successful
-        /// </summary>
         public event Action<string> OnTournamentRegistered;
-
-        /// <summary>
-        /// Fired when score is submitted successfully
-        /// </summary>
         public event Action OnScoreSubmitted;
 
         #endregion
 
         #region Properties
 
-        /// <summary>
-        /// Whether SDK is initialized
-        /// </summary>
-        public bool IsInitialized => _authManager?.IsInitialized ?? false;
+        public bool IsInitialized
+        {
+            get
+            {
+                if (_authManager != null)
+                {
+                    return _authManager.IsInitialized;
+                }
+                return false;
+            }
+        }
 
-        /// <summary>
-        /// Whether wallet is connected
-        /// </summary>
-        public bool IsWalletConnected => _walletManager?.IsConnected ?? false;
+        public bool IsWalletConnected
+        {
+            get
+            {
+                if (_walletManager != null)
+                {
+                    return _walletManager.IsConnected;
+                }
+                return false;
+            }
+        }
 
-        /// <summary>
-        /// Connected wallet address
-        /// </summary>
-        public string WalletAddress => _walletManager?.WalletAddress;
+        public string WalletAddress
+        {
+            get
+            {
+                if (_walletManager != null)
+                {
+                    return _walletManager.WalletAddress;
+                }
+                return null;
+            }
+        }
 
-        /// <summary>
-        /// Current SDK configuration
-        /// </summary>
-        public SDKConfig Config => _config;
+        public SDKConfig Config
+        {
+            get { return _config; }
+        }
 
         #endregion
 
@@ -118,45 +116,57 @@ namespace Multiversed
             DontDestroyOnLoad(gameObject);
         }
 
+        private void OnDestroy()
+        {
+            if (_instance == this)
+            {
+                _instance = null;
+            }
+        }
+
         private void OnApplicationPause(bool pauseStatus)
         {
-            // Handle deep link when app resumes (for mobile)
             if (!pauseStatus)
             {
                 CheckForDeepLink();
             }
         }
 
+#if UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            _instance = null;
+        }
+#endif
+
         #endregion
 
         #region Initialization
 
-        /// <summary>
-        /// Initialize SDK with default configuration
-        /// </summary>
-        /// <param name="gameId">Game ID from Multiversed dashboard</param>
-        /// <param name="apiKey">API Key from Multiversed dashboard</param>
         public void Initialize(string gameId, string apiKey)
         {
             Initialize(gameId, apiKey, new SDKConfig());
         }
 
-        /// <summary>
-        /// Initialize SDK with custom configuration
-        /// </summary>
-        /// <param name="gameId">Game ID from Multiversed dashboard</param>
-        /// <param name="apiKey">API Key from Multiversed dashboard</param>
-        /// <param name="config">SDK configuration</param>
         public void Initialize(string gameId, string apiKey, SDKConfig config)
         {
             if (IsInitialized)
             {
-                Logger.LogWarning("SDK already initialized");
+                SDKLogger.LogWarning("SDK already initialized");
                 return;
             }
 
-            _config = config ?? new SDKConfig();
-            Logger.EnableLogging = _config.EnableLogging;
+            if (config != null)
+            {
+                _config = config;
+            }
+            else
+            {
+                _config = new SDKConfig();
+            }
+
+            SDKLogger.EnableLogging = _config.EnableLogging;
 
             // Initialize auth manager
             _authManager = new AuthManager();
@@ -164,7 +174,10 @@ namespace Multiversed
 
             if (!_authManager.IsInitialized)
             {
-                OnError?.Invoke("Failed to initialize authentication");
+                if (OnError != null)
+                {
+                    OnError("Failed to initialize authentication");
+                }
                 return;
             }
 
@@ -174,92 +187,100 @@ namespace Multiversed
             // Initialize wallet manager
             _walletManager = new WalletManager(_config, gameId);
 
-            Logger.Log($"SDK initialized - Environment: {_config.Environment}");
+            SDKLogger.Log("SDK initialized - Environment: " + _config.Environment);
 
             // Verify credentials
             StartCoroutine(VerifyCredentialsCoroutine());
         }
 
-        /// <summary>
-        /// Verify SDK credentials with server
-        /// </summary>
         private IEnumerator VerifyCredentialsCoroutine()
         {
             yield return _apiClient.VerifyCredentials((success, message) =>
             {
                 if (success)
                 {
-                    Logger.Log("SDK credentials verified");
-                    OnInitialized?.Invoke();
+                    SDKLogger.Log("SDK credentials verified");
+                    if (OnInitialized != null)
+                    {
+                        OnInitialized();
+                    }
                 }
                 else
                 {
-                    Logger.LogError($"Credential verification failed: {message}");
-                    OnError?.Invoke($"Credential verification failed: {message}");
+                    SDKLogger.LogError("Credential verification failed: " + message);
+                    if (OnError != null)
+                    {
+                        OnError("Credential verification failed: " + message);
+                    }
                 }
             });
         }
 
-        /// <summary>
-        /// Set custom API base URL (for development)
-        /// </summary>
         public void SetCustomApiUrl(string url)
         {
-            _apiClient?.SetCustomBaseUrl(url);
+            if (_apiClient != null)
+            {
+                _apiClient.SetCustomBaseUrl(url);
+            }
         }
 
         #endregion
 
         #region Wallet Methods
 
-        /// <summary>
-        /// Connect wallet via Phantom
-        /// </summary>
         public void ConnectWallet()
         {
             if (!IsInitialized)
             {
-                OnError?.Invoke("SDK not initialized");
+                if (OnError != null)
+                {
+                    OnError("SDK not initialized");
+                }
                 return;
             }
 
             _walletManager.Connect(
                 onSuccess: (session) =>
                 {
-                    Logger.Log($"Wallet connected: {session.GetShortAddress()}");
-                    OnWalletConnected?.Invoke(session);
+                    SDKLogger.Log("Wallet connected: " + session.GetShortAddress());
+                    if (OnWalletConnected != null)
+                    {
+                        OnWalletConnected(session);
+                    }
                 },
                 onError: (error) =>
                 {
-                    Logger.LogError($"Wallet connection failed: {error}");
-                    OnError?.Invoke(error);
+                    SDKLogger.LogError("Wallet connection failed: " + error);
+                    if (OnError != null)
+                    {
+                        OnError(error);
+                    }
                 }
             );
         }
 
-        /// <summary>
-        /// Disconnect wallet
-        /// </summary>
         public void DisconnectWallet()
         {
-            _walletManager?.Disconnect();
-            OnWalletDisconnected?.Invoke();
+            if (_walletManager != null)
+            {
+                _walletManager.Disconnect();
+            }
+            if (OnWalletDisconnected != null)
+            {
+                OnWalletDisconnected();
+            }
         }
 
-        /// <summary>
-        /// Handle deep link callback (call from your app's deep link handler)
-        /// </summary>
         public void HandleDeepLink(string url)
         {
-            _walletManager?.HandleDeepLink(url);
+            if (_walletManager != null)
+            {
+                _walletManager.HandleDeepLink(url);
+            }
         }
 
-        /// <summary>
-        /// Check for pending deep links
-        /// </summary>
         private void CheckForDeepLink()
         {
-            // Unity's absoluteURL contains the deep link on some platforms
             string deepLink = Application.absoluteURL;
             if (!string.IsNullOrEmpty(deepLink))
             {
@@ -271,22 +292,19 @@ namespace Multiversed
 
         #region Tournament Methods
 
-        /// <summary>
-        /// Get all tournaments for this game
-        /// </summary>
         public void GetTournaments(Action<List<Tournament>> onSuccess, Action<string> onError)
         {
             GetTournaments(_config.DefaultTokenType, onSuccess, onError);
         }
 
-        /// <summary>
-        /// Get all tournaments for this game with specific token type
-        /// </summary>
         public void GetTournaments(TokenType tokenType, Action<List<Tournament>> onSuccess, Action<string> onError)
         {
             if (!IsInitialized)
             {
-                onError?.Invoke("SDK not initialized");
+                if (onError != null)
+                {
+                    onError("SDK not initialized");
+                }
                 return;
             }
 
@@ -294,32 +312,38 @@ namespace Multiversed
             {
                 if (tournaments != null)
                 {
-                    onSuccess?.Invoke(new List<Tournament>(tournaments));
+                    if (onSuccess != null)
+                    {
+                        onSuccess(new List<Tournament>(tournaments));
+                    }
                 }
                 else
                 {
-                    onError?.Invoke(error);
-                    OnError?.Invoke(error);
+                    if (onError != null)
+                    {
+                        onError(error);
+                    }
+                    if (OnError != null)
+                    {
+                        OnError(error);
+                    }
                 }
             }));
         }
 
-        /// <summary>
-        /// Get single tournament by ID
-        /// </summary>
         public void GetTournament(string tournamentId, Action<Tournament> onSuccess, Action<string> onError)
         {
             GetTournament(tournamentId, _config.DefaultTokenType, onSuccess, onError);
         }
 
-        /// <summary>
-        /// Get single tournament by ID with specific token type
-        /// </summary>
         public void GetTournament(string tournamentId, TokenType tokenType, Action<Tournament> onSuccess, Action<string> onError)
         {
             if (!IsInitialized)
             {
-                onError?.Invoke("SDK not initialized");
+                if (onError != null)
+                {
+                    onError("SDK not initialized");
+                }
                 return;
             }
 
@@ -327,47 +351,53 @@ namespace Multiversed
             {
                 if (tournament != null)
                 {
-                    onSuccess?.Invoke(tournament);
+                    if (onSuccess != null)
+                    {
+                        onSuccess(tournament);
+                    }
                 }
                 else
                 {
-                    onError?.Invoke(error);
-                    OnError?.Invoke(error);
+                    if (onError != null)
+                    {
+                        onError(error);
+                    }
+                    if (OnError != null)
+                    {
+                        OnError(error);
+                    }
                 }
             }));
         }
 
-        /// <summary>
-        /// Register for a tournament
-        /// </summary>
         public void RegisterForTournament(string tournamentId, Action<string> onSuccess, Action<string> onError)
         {
             RegisterForTournament(tournamentId, _config.DefaultTokenType, onSuccess, onError);
         }
 
-        /// <summary>
-        /// Register for a tournament with specific token type
-        /// </summary>
         public void RegisterForTournament(string tournamentId, TokenType tokenType, Action<string> onSuccess, Action<string> onError)
         {
             if (!IsInitialized)
             {
-                onError?.Invoke("SDK not initialized");
+                if (onError != null)
+                {
+                    onError("SDK not initialized");
+                }
                 return;
             }
 
             if (!IsWalletConnected)
             {
-                onError?.Invoke("Wallet not connected");
+                if (onError != null)
+                {
+                    onError("Wallet not connected");
+                }
                 return;
             }
 
             StartCoroutine(RegisterForTournamentCoroutine(tournamentId, tokenType, onSuccess, onError));
         }
 
-        /// <summary>
-        /// Tournament registration coroutine
-        /// </summary>
         private IEnumerator RegisterForTournamentCoroutine(
             string tournamentId,
             TokenType tokenType,
@@ -377,7 +407,6 @@ namespace Multiversed
             string unsignedTransaction = null;
             string prepareError = null;
 
-            // Step 1: Get unsigned transaction
             yield return _apiClient.PrepareRegistration(
                 tournamentId,
                 WalletAddress,
@@ -391,11 +420,14 @@ namespace Multiversed
 
             if (string.IsNullOrEmpty(unsignedTransaction))
             {
-                onError?.Invoke(prepareError ?? "Failed to prepare registration");
+                string errorMsg = prepareError != null ? prepareError : "Failed to prepare registration";
+                if (onError != null)
+                {
+                    onError(errorMsg);
+                }
                 yield break;
             }
 
-            // Step 2: Sign transaction via Phantom
             bool signCompleted = false;
             string signature = null;
             string signError = null;
@@ -415,16 +447,18 @@ namespace Multiversed
                 }
             );
 
-            // Wait for signing to complete
             yield return new WaitUntil(() => signCompleted);
 
             if (string.IsNullOrEmpty(signature))
             {
-                onError?.Invoke(signError ?? "Transaction signing failed");
+                string errorMsg = signError != null ? signError : "Transaction signing failed";
+                if (onError != null)
+                {
+                    onError(errorMsg);
+                }
                 yield break;
             }
 
-            // Step 3: Confirm registration
             yield return _apiClient.ConfirmRegistration(
                 tournamentId,
                 signature,
@@ -433,35 +467,44 @@ namespace Multiversed
                 {
                     if (success)
                     {
-                        Logger.Log($"Registered for tournament: {tournamentId}");
-                        onSuccess?.Invoke(signature);
-                        OnTournamentRegistered?.Invoke(tournamentId);
+                        SDKLogger.Log("Registered for tournament: " + tournamentId);
+                        if (onSuccess != null)
+                        {
+                            onSuccess(signature);
+                        }
+                        if (OnTournamentRegistered != null)
+                        {
+                            OnTournamentRegistered(tournamentId);
+                        }
                     }
                     else
                     {
-                        onError?.Invoke(message);
-                        OnError?.Invoke(message);
+                        if (onError != null)
+                        {
+                            onError(message);
+                        }
+                        if (OnError != null)
+                        {
+                            OnError(message);
+                        }
                     }
                 }
             );
         }
 
-        /// <summary>
-        /// Get tournament leaderboard
-        /// </summary>
         public void GetLeaderboard(string tournamentId, Action<List<LeaderboardEntry>> onSuccess, Action<string> onError)
         {
             GetLeaderboard(tournamentId, _config.DefaultTokenType, onSuccess, onError);
         }
 
-        /// <summary>
-        /// Get tournament leaderboard with specific token type
-        /// </summary>
         public void GetLeaderboard(string tournamentId, TokenType tokenType, Action<List<LeaderboardEntry>> onSuccess, Action<string> onError)
         {
             if (!IsInitialized)
             {
-                onError?.Invoke("SDK not initialized");
+                if (onError != null)
+                {
+                    onError("SDK not initialized");
+                }
                 return;
             }
 
@@ -469,12 +512,21 @@ namespace Multiversed
             {
                 if (entries != null)
                 {
-                    onSuccess?.Invoke(new List<LeaderboardEntry>(entries));
+                    if (onSuccess != null)
+                    {
+                        onSuccess(new List<LeaderboardEntry>(entries));
+                    }
                 }
                 else
                 {
-                    onError?.Invoke(error);
-                    OnError?.Invoke(error);
+                    if (onError != null)
+                    {
+                        onError(error);
+                    }
+                    if (OnError != null)
+                    {
+                        OnError(error);
+                    }
                 }
             }));
         }
@@ -483,28 +535,28 @@ namespace Multiversed
 
         #region Score Methods
 
-        /// <summary>
-        /// Submit score for a tournament
-        /// </summary>
         public void SubmitScore(string tournamentId, int score, Action onSuccess, Action<string> onError)
         {
             SubmitScore(tournamentId, score, _config.DefaultTokenType, onSuccess, onError);
         }
 
-        /// <summary>
-        /// Submit score for a tournament with specific token type
-        /// </summary>
         public void SubmitScore(string tournamentId, int score, TokenType tokenType, Action onSuccess, Action<string> onError)
         {
             if (!IsInitialized)
             {
-                onError?.Invoke("SDK not initialized");
+                if (onError != null)
+                {
+                    onError("SDK not initialized");
+                }
                 return;
             }
 
             if (!IsWalletConnected)
             {
-                onError?.Invoke("Wallet not connected");
+                if (onError != null)
+                {
+                    onError("Wallet not connected");
+                }
                 return;
             }
 
@@ -517,14 +569,26 @@ namespace Multiversed
                 {
                     if (success)
                     {
-                        Logger.Log($"Score submitted: {score}");
-                        onSuccess?.Invoke();
-                        OnScoreSubmitted?.Invoke();
+                        SDKLogger.Log("Score submitted: " + score);
+                        if (onSuccess != null)
+                        {
+                            onSuccess();
+                        }
+                        if (OnScoreSubmitted != null)
+                        {
+                            OnScoreSubmitted();
+                        }
                     }
                     else
                     {
-                        onError?.Invoke(message);
-                        OnError?.Invoke(message);
+                        if (onError != null)
+                        {
+                            onError(message);
+                        }
+                        if (OnError != null)
+                        {
+                            OnError(message);
+                        }
                     }
                 }
             ));

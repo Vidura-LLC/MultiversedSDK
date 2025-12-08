@@ -11,32 +11,30 @@ namespace Multiversed.Core
         private string _apiKey;
         private bool _isInitialized;
 
-        public string GameId => _gameId;
-        public string ApiKey => _apiKey;
-        public bool IsInitialized => _isInitialized;
+        public string GameId { get { return _gameId; } }
+        public string ApiKey { get { return _apiKey; } }
+        public bool IsInitialized { get { return _isInitialized; } }
 
         /// <summary>
         /// Initialize authentication with game credentials
         /// </summary>
-        /// <param name="gameId">Game ID from Multiversed dashboard</param>
-        /// <param name="apiKey">API Key from Multiversed dashboard</param>
         public void Initialize(string gameId, string apiKey)
         {
             if (string.IsNullOrEmpty(gameId))
             {
-                Logger.LogError("Game ID cannot be null or empty");
+                SDKLogger.LogError("Game ID cannot be null or empty");
                 return;
             }
 
             if (string.IsNullOrEmpty(apiKey))
             {
-                Logger.LogError("API Key cannot be null or empty");
+                SDKLogger.LogError("API Key cannot be null or empty");
                 return;
             }
 
             if (!ValidateApiKeyFormat(apiKey))
             {
-                Logger.LogError("Invalid API Key format. Expected format: sk_live_* or sk_test_*");
+                SDKLogger.LogError("Invalid API Key format. Expected format: sk_live_* or sk_test_*");
                 return;
             }
 
@@ -44,7 +42,7 @@ namespace Multiversed.Core
             _apiKey = apiKey;
             _isInitialized = true;
 
-            Logger.Log($"AuthManager initialized for game: {GetMaskedGameId()}");
+            SDKLogger.Log("AuthManager initialized for game: " + GetMaskedGameId());
         }
 
         /// <summary>
@@ -56,7 +54,7 @@ namespace Multiversed.Core
             _apiKey = null;
             _isInitialized = false;
 
-            Logger.Log("AuthManager credentials cleared");
+            SDKLogger.Log("AuthManager credentials cleared");
         }
 
         /// <summary>
@@ -75,7 +73,7 @@ namespace Multiversed.Core
             if (string.IsNullOrEmpty(_gameId) || _gameId.Length <= 8)
                 return _gameId;
 
-            return $"{_gameId.Substring(0, 8)}...";
+            return _gameId.Substring(0, 8) + "...";
         }
 
         /// <summary>
@@ -86,7 +84,7 @@ namespace Multiversed.Core
             if (string.IsNullOrEmpty(_apiKey) || _apiKey.Length <= 16)
                 return "***";
 
-            return $"{_apiKey.Substring(0, 16)}...";
+            return _apiKey.Substring(0, 16) + "...";
         }
     }
 }

@@ -23,30 +23,30 @@ namespace Multiversed.Models
         public string createdBy;
         public string createdAt;
 
-        /// <summary>
-        /// Check if tournament is currently active
-        /// </summary>
-        public bool IsActive => status == "Active";
+        public bool IsActive
+        {
+            get { return status == "Active"; }
+        }
 
-        /// <summary>
-        /// Check if tournament is open for registration
-        /// </summary>
-        public bool IsOpenForRegistration => status == "Not Started" || status == "Active";
+        public bool IsOpenForRegistration
+        {
+            get { return status == "Not Started" || status == "Active"; }
+        }
 
-        /// <summary>
-        /// Check if tournament has ended
-        /// </summary>
-        public bool HasEnded => status == "Ended" || status == "Distributed" || status == "Awarded";
+        public bool HasEnded
+        {
+            get { return status == "Ended" || status == "Distributed" || status == "Awarded"; }
+        }
     }
 
     /// <summary>
-    /// Tournament list response
+    /// Tournament list response - uses "data" field from API
     /// </summary>
     [System.Serializable]
     public class TournamentListResponse
     {
         public bool success;
-        public Tournament[] tournaments;
+        public Tournament[] data;  // Changed from "tournaments" to "data"
     }
 
     /// <summary>
@@ -57,6 +57,7 @@ namespace Multiversed.Models
     {
         public bool success;
         public Tournament tournament;
+        public Tournament data;  // Some endpoints might use "data"
     }
 
     /// <summary>

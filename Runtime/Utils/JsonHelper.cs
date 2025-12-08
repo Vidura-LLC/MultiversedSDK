@@ -18,7 +18,7 @@ namespace Multiversed.Utils
             }
             catch (System.Exception e)
             {
-                Logger.LogError($"JSON parse error: {e.Message}");
+                SDKLogger.LogError("JSON parse error: " + e.Message);
                 return default;
             }
         }
@@ -34,7 +34,7 @@ namespace Multiversed.Utils
             }
             catch (System.Exception e)
             {
-                Logger.LogError($"JSON serialize error: {e.Message}");
+                SDKLogger.LogError("JSON serialize error: " + e.Message);
                 return null;
             }
         }
@@ -44,9 +44,13 @@ namespace Multiversed.Utils
         /// </summary>
         public static T[] FromJsonArray<T>(string json)
         {
-            string wrappedJson = $"{{\"items\":{json}}}";
+            string wrappedJson = "{\"items\":" + json + "}";
             var wrapper = JsonUtility.FromJson<JsonArrayWrapper<T>>(wrappedJson);
-            return wrapper?.items;
+            if (wrapper != null)
+            {
+                return wrapper.items;
+            }
+            return null;
         }
 
         [System.Serializable]

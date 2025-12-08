@@ -3,7 +3,7 @@ namespace Multiversed.Utils
     /// <summary>
     /// Internal logger for SDK debugging
     /// </summary>
-    public static class Logger
+    public static class SDKLogger
     {
         private const string TAG = "[Multiversed]";
 
@@ -14,7 +14,7 @@ namespace Multiversed.Utils
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (EnableLogging)
             {
-                UnityEngine.Debug.Log($"{TAG} {message}");
+                UnityEngine.Debug.Log(TAG + " " + message);
             }
 #endif
         }
@@ -23,13 +23,13 @@ namespace Multiversed.Utils
         {
             if (EnableLogging)
             {
-                UnityEngine.Debug.LogWarning($"{TAG} {message}");
+                UnityEngine.Debug.LogWarning(TAG + " " + message);
             }
         }
 
         public static void LogError(string message)
         {
-            UnityEngine.Debug.LogError($"{TAG} {message}");
+            UnityEngine.Debug.LogError(TAG + " " + message);
         }
 
         public static void LogException(System.Exception exception)

@@ -23,9 +23,9 @@ namespace Multiversed.Wallet
         // Pending transaction data
         private string _pendingTournamentId;
 
-        public WalletSession Session => _session;
-        public bool IsConnected => _session.IsConnected;
-        public string WalletAddress => _session.WalletAddress;
+        public WalletSession Session { get { return _session; } }
+        public bool IsConnected { get { return _session.IsConnected; } }
+        public string WalletAddress { get { return _session.WalletAddress; } }
 
         public WalletManager(SDKConfig config, string gameId)
         {
@@ -44,16 +44,23 @@ namespace Multiversed.Wallet
         /// </summary>
         private void InitializePhantomDeepLink(string gameId)
         {
-            string urlScheme = !string.IsNullOrEmpty(_config.CustomUrlScheme)
-                ? _config.CustomUrlScheme
-                : $"multiversed-{gameId.Substring(0, Math.Min(8, gameId.Length))}";
+            string urlScheme;
+            if (!string.IsNullOrEmpty(_config.CustomUrlScheme))
+            {
+                urlScheme = _config.CustomUrlScheme;
+            }
+            else
+            {
+                int len = Math.Min(8, gameId.Length);
+                urlScheme = "multiversed-" + gameId.Substring(0, len);
+            }
 
             string appUrl = "https://multiversed.io";
             bool isDevnet = _config.Environment == SDKEnvironment.Devnet;
 
             _phantomDeepLink = new PhantomDeepLink(appUrl, urlScheme, isDevnet);
 
-            Logger.Log($"WalletManager initialized with scheme: {urlScheme}");
+            SDKLogger.Log("WalletManager initialized with scheme: " + urlScheme);
         }
 
         /// <summary>
@@ -67,7 +74,7 @@ namespace Multiversed.Wallet
             string connectUrl = _phantomDeepLink.GetConnectUrl();
             _phantomDeepLink.OpenUrl(connectUrl);
 
-            Logger.Log("Opening Phantom for wallet connection...");
+            SDKLogger.Log("Opening Phantom for wallet connection...");
         }
 
         /// <summary>
@@ -76,7 +83,7 @@ namespace Multiversed.Wallet
         public void Disconnect()
         {
             _session.Disconnect();
-            Logger.Log("Wallet disconnected");
+            SDKLogger.Log("Wallet disconnected");
         }
 
         /// <summary>
@@ -90,7 +97,7 @@ namespace Multiversed.Wallet
         {
             if (!IsConnected)
             {
-                onError?.Invoke("Wallet not connected");
+                onError("Wallet not connected");
                 return;
             }
 
@@ -101,16 +108,16 @@ namespace Multiversed.Wallet
             string signUrl = _phantomDeepLink.GetSignAndSendTransactionUrl(base64Transaction);
             _phantomDeepLink.OpenUrl(signUrl);
 
-            Logger.Log("Opening Phantom for transaction signing...");
+            SDKLogger.Log("Opening Phantom for transaction signing...");
         }
 
         /// <summary>
         /// Handle deep link callback from Phantom
-        /// Call this from your app's deep link handler
         /// </summary>
         public void HandleDeepLink(string url)
         {
-            Logger.Log($"Handling deep link: {url.Substring(0, Math.Min(50, url.Length))}...");
+            int maxLen = Math.Min(50, url.Length);
+            SDKLogger.Log("Handling deep link: " + url.Substring(0, maxLen) + "...");
 
             if (url.Contains("/callback/connect"))
             {
@@ -122,7 +129,7 @@ namespace Multiversed.Wallet
             }
             else
             {
-                Logger.LogWarning($"Unknown deep link callback: {url}");
+                SDKLogger.LogWarning("Unknown deep link callback: " + url);
             }
         }
 
@@ -136,12 +143,18 @@ namespace Multiversed.Wallet
             if (result.Success)
             {
                 _session.Connect(result.PublicKey, null, result.PhantomEncryptionPublicKey);
-                _onConnectSuccess?.Invoke(_session);
+                if (_onConnectSuccess != null)
+                {
+                    _onConnectSuccess(_session);
+                }
             }
             else
             {
-                Logger.LogError($"Connect failed: {result.Error}");
-                _onConnectError?.Invoke(result.Error);
+                SDKLogger.LogError("Connect failed: " + result.Error);
+                if (_onConnectError != null)
+                {
+                    _onConnectError(result.Error);
+                }
             }
 
             // Clear callbacks
@@ -158,13 +171,20 @@ namespace Multiversed.Wallet
 
             if (result.Success)
             {
-                Logger.Log($"Transaction signed: {result.Signature.Substring(0, Math.Min(20, result.Signature.Length))}...");
-                _onSignSuccess?.Invoke(result.Signature);
+                int maxLen = Math.Min(20, result.Signature.Length);
+                SDKLogger.Log("Transaction signed: " + result.Signature.Substring(0, maxLen) + "...");
+                if (_onSignSuccess != null)
+                {
+                    _onSignSuccess(result.Signature);
+                }
             }
             else
             {
-                Logger.LogError($"Sign transaction failed: {result.Error}");
-                _onSignError?.Invoke(result.Error);
+                SDKLogger.LogError("Sign transaction failed: " + result.Error);
+                if (_onSignError != null)
+                {
+                    _onSignError(result.Error);
+                }
             }
 
             // Clear callbacks and pending data

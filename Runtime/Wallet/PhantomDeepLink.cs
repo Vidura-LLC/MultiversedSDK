@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using Multiversed.Utils;
@@ -25,9 +26,6 @@ namespace Multiversed.Wallet
         /// <summary>
         /// Create PhantomDeepLink handler
         /// </summary>
-        /// <param name="appUrl">Your app's URL (for display in Phantom)</param>
-        /// <param name="redirectScheme">URL scheme for callback (e.g., "mygame://")</param>
-        /// <param name="isDevnet">Use devnet cluster</param>
         public PhantomDeepLink(string appUrl, string redirectScheme, bool isDevnet = true)
         {
             _appUrl = appUrl;
@@ -40,58 +38,54 @@ namespace Multiversed.Wallet
         /// </summary>
         public string GetConnectUrl()
         {
-            string redirectLink = $"{_redirectScheme}/callback/connect";
+            string redirectLink = _redirectScheme + "/callback/connect";
 
-            var url = $"{PHANTOM_CONNECT_URL}" +
-                      $"?app_url={Uri.EscapeDataString(_appUrl)}" +
-                      $"&dapp_encryption_public_key=" +
-                      $"&redirect_link={Uri.EscapeDataString(redirectLink)}" +
-                      $"&cluster={_cluster}";
+            string url = PHANTOM_CONNECT_URL +
+                      "?app_url=" + Uri.EscapeDataString(_appUrl) +
+                      "&dapp_encryption_public_key=" +
+                      "&redirect_link=" + Uri.EscapeDataString(redirectLink) +
+                      "&cluster=" + _cluster;
 
-            Logger.Log($"Generated connect URL: {url}");
+            SDKLogger.Log("Generated connect URL: " + url);
             return url;
         }
 
         /// <summary>
         /// Generate sign and send transaction deep link URL
         /// </summary>
-        /// <param name="base64Transaction">Base64 encoded transaction</param>
         public string GetSignAndSendTransactionUrl(string base64Transaction)
         {
-            string redirectLink = $"{_redirectScheme}/callback/signTransaction";
+            string redirectLink = _redirectScheme + "/callback/signTransaction";
 
-            var url = $"{PHANTOM_SIGN_TRANSACTION_URL}" +
-                      $"?transaction={Uri.EscapeDataString(base64Transaction)}" +
-                      $"&redirect_link={Uri.EscapeDataString(redirectLink)}" +
-                      $"&cluster={_cluster}";
+            string url = PHANTOM_SIGN_TRANSACTION_URL +
+                      "?transaction=" + Uri.EscapeDataString(base64Transaction) +
+                      "&redirect_link=" + Uri.EscapeDataString(redirectLink) +
+                      "&cluster=" + _cluster;
 
-            Logger.Log($"Generated sign transaction URL");
+            SDKLogger.Log("Generated sign transaction URL");
             return url;
         }
 
         /// <summary>
         /// Generate sign message deep link URL
         /// </summary>
-        /// <param name="message">Message to sign</param>
         public string GetSignMessageUrl(string message)
         {
             string base64Message = Convert.ToBase64String(Encoding.UTF8.GetBytes(message));
-            string redirectLink = $"{_redirectScheme}/callback/signMessage";
+            string redirectLink = _redirectScheme + "/callback/signMessage";
 
-            var url = $"{PHANTOM_SIGN_MESSAGE_URL}" +
-                      $"?message={Uri.EscapeDataString(base64Message)}" +
-                      $"&redirect_link={Uri.EscapeDataString(redirectLink)}" +
-                      $"&cluster={_cluster}";
+            string url = PHANTOM_SIGN_MESSAGE_URL +
+                      "?message=" + Uri.EscapeDataString(base64Message) +
+                      "&redirect_link=" + Uri.EscapeDataString(redirectLink) +
+                      "&cluster=" + _cluster;
 
-            Logger.Log($"Generated sign message URL");
+            SDKLogger.Log("Generated sign message URL");
             return url;
         }
 
         /// <summary>
         /// Parse connect callback URL
         /// </summary>
-        /// <param name="callbackUrl">Full callback URL from Phantom</param>
-        /// <returns>Wallet public key or null if error</returns>
         public ConnectResult ParseConnectCallback(string callbackUrl)
         {
             try
@@ -100,19 +94,23 @@ namespace Multiversed.Wallet
                 var query = ParseQueryString(uri.Query);
 
                 // Check for error
-                if (query.TryGetValue("errorCode", out string errorCode))
+                string errorCode;
+                if (query.TryGetValue("errorCode", out errorCode))
                 {
-                    query.TryGetValue("errorMessage", out string errorMessage);
+                    string errorMessage = "";
+                    query.TryGetValue("errorMessage", out errorMessage);
                     return new ConnectResult
                     {
                         Success = false,
-                        Error = $"{errorCode}: {errorMessage}"
+                        Error = errorCode + ": " + errorMessage
                     };
                 }
 
                 // Get public key
-                if (query.TryGetValue("phantom_encryption_public_key", out string phantomKey) &&
-                    query.TryGetValue("public_key", out string publicKey))
+                string phantomKey;
+                string publicKey;
+                if (query.TryGetValue("phantom_encryption_public_key", out phantomKey) &&
+                    query.TryGetValue("public_key", out publicKey))
                 {
                     return new ConnectResult
                     {
@@ -130,7 +128,7 @@ namespace Multiversed.Wallet
             }
             catch (Exception e)
             {
-                Logger.LogError($"Error parsing connect callback: {e.Message}");
+                SDKLogger.LogError("Error parsing connect callback: " + e.Message);
                 return new ConnectResult
                 {
                     Success = false,
@@ -150,18 +148,21 @@ namespace Multiversed.Wallet
                 var query = ParseQueryString(uri.Query);
 
                 // Check for error
-                if (query.TryGetValue("errorCode", out string errorCode))
+                string errorCode;
+                if (query.TryGetValue("errorCode", out errorCode))
                 {
-                    query.TryGetValue("errorMessage", out string errorMessage);
+                    string errorMessage = "";
+                    query.TryGetValue("errorMessage", out errorMessage);
                     return new SignTransactionResult
                     {
                         Success = false,
-                        Error = $"{errorCode}: {errorMessage}"
+                        Error = errorCode + ": " + errorMessage
                     };
                 }
 
                 // Get signature
-                if (query.TryGetValue("signature", out string signature))
+                string signature;
+                if (query.TryGetValue("signature", out signature))
                 {
                     return new SignTransactionResult
                     {
@@ -178,7 +179,7 @@ namespace Multiversed.Wallet
             }
             catch (Exception e)
             {
-                Logger.LogError($"Error parsing sign transaction callback: {e.Message}");
+                SDKLogger.LogError("Error parsing sign transaction callback: " + e.Message);
                 return new SignTransactionResult
                 {
                     Success = false,
@@ -225,25 +226,27 @@ namespace Multiversed.Wallet
         /// </summary>
         public void OpenUrl(string url)
         {
-            Logger.Log($"Opening URL: {url.Substring(0, Math.Min(100, url.Length))}...");
+            int maxLen = Math.Min(100, url.Length);
+            SDKLogger.Log("Opening URL: " + url.Substring(0, maxLen) + "...");
             Application.OpenURL(url);
         }
 
         /// <summary>
         /// Parse query string into dictionary
         /// </summary>
-        private System.Collections.Generic.Dictionary<string, string> ParseQueryString(string query)
+        private Dictionary<string, string> ParseQueryString(string query)
         {
-            var dict = new System.Collections.Generic.Dictionary<string, string>();
+            var dict = new Dictionary<string, string>();
 
             if (string.IsNullOrEmpty(query))
                 return dict;
 
             query = query.TrimStart('?');
 
-            foreach (var param in query.Split('&'))
+            string[] pairs = query.Split('&');
+            foreach (var param in pairs)
             {
-                var parts = param.Split('=');
+                string[] parts = param.Split('=');
                 if (parts.Length == 2)
                 {
                     dict[Uri.UnescapeDataString(parts[0])] = Uri.UnescapeDataString(parts[1]);
