@@ -136,7 +136,7 @@ namespace Multiversed.Core
                 if (success)
                 {
                     var result = JsonHelper.FromJson<TournamentResponse>(response);
-                    if (result != null && result.success)
+                    if (result != null && result.tournament != null)
                     {
                         callback(result.tournament, null);
                     }
@@ -151,7 +151,6 @@ namespace Multiversed.Core
                 }
             });
         }
-
         /// <summary>
         /// Prepare tournament registration (get unsigned transaction)
         /// </summary>
@@ -225,7 +224,6 @@ namespace Multiversed.Core
                 }
             });
         }
-
         /// <summary>
         /// Get tournament leaderboard
         /// </summary>
@@ -243,7 +241,21 @@ namespace Multiversed.Core
                     var result = JsonHelper.FromJson<LeaderboardResponse>(response);
                     if (result != null && result.success)
                     {
-                        callback(result.leaderboard, null);
+                        // Check for nested data structure first
+                        if (result.data != null && result.data.leaderboard != null)
+                        {
+                            callback(result.data.leaderboard, null);
+                        }
+                        // Fallback to direct leaderboard array
+                        else if (result.leaderboard != null)
+                        {
+                            callback(result.leaderboard, null);
+                        }
+                        else
+                        {
+                            // Empty leaderboard
+                            callback(new LeaderboardEntry[0], null);
+                        }
                     }
                     else
                     {

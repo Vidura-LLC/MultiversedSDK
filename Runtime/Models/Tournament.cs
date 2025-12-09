@@ -18,10 +18,18 @@ namespace Multiversed.Models
         public string status;
         public int participantsCount;
         public int maxParticipants;
+        public int max_participants;
         public TokenType tokenType;
         public string prizePool;
         public string createdBy;
         public string createdAt;
+
+        // Helper to get max participants from either field
+        public int GetMaxParticipants()
+        {
+            if (maxParticipants > 0) return maxParticipants;
+            return max_participants;
+        }
 
         public bool IsActive
         {
@@ -46,18 +54,17 @@ namespace Multiversed.Models
     public class TournamentListResponse
     {
         public bool success;
-        public Tournament[] data;  // Changed from "tournaments" to "data"
+        public Tournament[] data;
     }
 
     /// <summary>
-    /// Single tournament response
+    /// Single tournament response - API returns "tournament" field directly
     /// </summary>
     [System.Serializable]
     public class TournamentResponse
     {
         public bool success;
-        public Tournament tournament;
-        public Tournament data;  // Some endpoints might use "data"
+        public Tournament tournament;  // Direct tournament object
     }
 
     /// <summary>
