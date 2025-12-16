@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Unity generated Visual Studio files
+*.csproj
+*.sln
+.vsconfig
