@@ -65,26 +65,29 @@ namespace Multiversed.Wallet
         /// <summary>
         /// Connect wallet via Phantom
         /// </summary>
-        public void Connect(Action<WalletSession> onSuccess, Action<string> onError)
+/// <summary>
+/// Connect wallet via Phantom
+/// </summary>
+public void Connect(Action<WalletSession> onSuccess, Action<string> onError)
+{
+    _onConnectSuccess = onSuccess;
+    _onConnectError = onError;
+
+    string connectUrl = PhantomDeepLink.GetConnectUrl();  // Use consistent variable name
+    
+    if (!string.IsNullOrEmpty(connectUrl))
+    {
+        PhantomDeepLink.OpenUrl(connectUrl);
+        SDKLogger.Log("Opening Phantom for wallet connection...");
+    }
+    else
+    {
+        if (onError != null)
         {
-            _onConnectSuccess = onSuccess;
-            _onConnectError = onError;
-
-            string connectUrl = PhantomDeepLink.GetConnectUrl();
-            if (!string.IsNullOrEmpty(connectUrl))
-            {
-                PhantomDeepLink.OpenUrl(connectUrl);
-                SDKLogger.Log("Opening Phantom for wallet connection...");
-            }
-            else
-            {
-                if (onError != null)
-                {
-                    onError("Failed to generate connect URL");
-                }
-            }
+            onError("Failed to generate connect URL");
         }
-
+    }
+}
         /// <summary>
         /// Disconnect wallet
         /// </summary>
@@ -114,8 +117,11 @@ namespace Multiversed.Wallet
             _pendingTournamentId = tournamentId;
 
             // Use session token if available, otherwise use wallet address
-            string session = _session.SessionToken ?? _session.WalletAddress ?? "";
-            string signUrl = PhantomDeepLink.GetSignAndSendTransactionUrl(base64Transaction, session);
+            string session = _session.SessionToken ?? _session.WalletAddress ?? string.Empty;
+
+            // Use signTransaction (sign only) instead of signAndSendTransaction,
+            // since some Phantom environments don't support the latter.
+            string signUrl = PhantomDeepLink.GetSignTransactionUrl(base64Transaction, session);
             if (!string.IsNullOrEmpty(signUrl))
             {
                 PhantomDeepLink.OpenUrl(signUrl);
@@ -130,38 +136,39 @@ namespace Multiversed.Wallet
             }
         }
 
-/// <summary>
-/// Handle deep link callback from Phantom
-/// </summary>
-public void HandleDeepLink(string url)
-{
-    SDKLogger.Log("Handling deep link: " + url);
+        /// <summary>
+        /// Handle deep link callback from Phantom
+        /// </summary>
+        public void HandleDeepLink(string url)
+        {
+            SDKLogger.Log("Handling deep link: " + url);
 
-    // Phantom returns to: multiversed-df62e4e4://onConnect?...
-    // or: multiversed-df62e4e4://onSignAndSendTransaction?...
-    
-    if (url.Contains("onConnect"))
-    {
-        HandleConnectCallback(url);
-    }
-    else if (url.Contains("onSignAndSendTransaction"))
-    {
-        HandleSignTransactionCallback(url);
-    }
-    else if (url.Contains("onSignMessage"))
-    {
-        HandleSignTransactionCallback(url); // Reuse for message signing
-    }
-    else if (url.Contains("onDisconnect"))
-    {
-        _session.Disconnect();
-        SDKLogger.Log("Wallet disconnected via deep link");
-    }
-    else
-    {
-        SDKLogger.LogWarning("Unknown deep link callback: " + url);
-    }
-}
+            // Phantom returns to: multiversed-<gameId>://onConnect?...
+            // or: multiversed-<gameId>://onSignTransaction?...
+
+            if (url.Contains("onConnect"))
+            {
+                HandleConnectCallback(url);
+            }
+            else if (url.Contains("onSignAndSendTransaction") || url.Contains("onSignTransaction"))
+            {
+                HandleSignTransactionCallback(url);
+            }
+            else if (url.Contains("onSignMessage"))
+            {
+                // Reuse the same handler for message signing flows
+                HandleSignTransactionCallback(url);
+            }
+            else if (url.Contains("onDisconnect"))
+            {
+                _session.Disconnect();
+                SDKLogger.Log("Wallet disconnected via deep link");
+            }
+            else
+            {
+                SDKLogger.LogWarning("Unknown deep link callback: " + url);
+            }
+        }
 
         /// <summary>
         /// Handle connect callback from Phantom
