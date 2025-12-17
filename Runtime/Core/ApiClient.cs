@@ -196,6 +196,7 @@ namespace Multiversed.Core
         /// </summary>
         public IEnumerator ConfirmRegistration(
             string tournamentId,
+            string walletAddress,
             string signature,
             TokenType tokenType,
             Action<bool, string> callback)
@@ -203,7 +204,8 @@ namespace Multiversed.Core
             var body = new ConfirmRegistrationRequest
             {
                 tournamentId = tournamentId,
-                signature = signature,
+                userPublicKey = walletAddress,
+                transactionSignature = signature,
                 tokenType = (int)tokenType
             };
 
@@ -428,7 +430,8 @@ namespace Multiversed.Core
         private class ConfirmRegistrationRequest
         {
             public string tournamentId;
-            public string signature;
+            public string userPublicKey;
+            public string transactionSignature;
             public int tokenType;
         }
 
