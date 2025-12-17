@@ -461,6 +461,7 @@ namespace Multiversed
 
             yield return _apiClient.ConfirmRegistration(
                 tournamentId,
+                WalletAddress,
                 signature,
                 tokenType,
                 (success, message) =>
