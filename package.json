@@ -26,6 +26,11 @@
       "displayName": "Basic Integration",
       "description": "Simple example showing SDK initialization, wallet connection, and tournament listing",
       "path": "Samples~/BasicIntegration"
+    },
+    {
+      "displayName": "UI Components",
+      "description": "Ready-to-use UI components: TournamentCard and TournamentsPage for displaying tournaments",
+      "path": "Samples~/UI Components"
     }
   ]
 }

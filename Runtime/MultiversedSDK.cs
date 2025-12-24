@@ -187,10 +187,28 @@ namespace Multiversed
             // Initialize wallet manager
             _walletManager = new WalletManager(_config, gameId);
 
+            // Initialize DeepLinkReceiver for automatic deep link handling
+            InitializeDeepLinkReceiver();
+
             SDKLogger.Log("SDK initialized - Environment: " + _config.Environment);
 
             // Verify credentials
             StartCoroutine(VerifyCredentialsCoroutine());
+        }
+
+        /// <summary>
+        /// Initialize DeepLinkReceiver for automatic deep link handling
+        /// </summary>
+        private void InitializeDeepLinkReceiver()
+        {
+            // Check if DeepLinkReceiver already exists
+            var existingReceiver = FindFirstObjectByType<Utils.DeepLinkReceiver>();
+            if (existingReceiver == null)
+            {
+                GameObject receiverObj = new GameObject("DeepLinkReceiver");
+                receiverObj.AddComponent<Utils.DeepLinkReceiver>();
+                SDKLogger.Log("DeepLinkReceiver initialized automatically");
+            }
         }
 
         private IEnumerator VerifyCredentialsCoroutine()

@@ -1,162 +1,65 @@
-🎮 MULTIVERSED UNITY SDK - INITIAL RELEASE
+# Multiversed SDK for Unity
 
-A comprehensive Unity SDK for integrating blockchain-powered tournaments,
-wallet connections, and leaderboards into Unity games.
+Integrate Multiversed tournaments, wallet connection, and leaderboards into your Unity game.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## Quick Start
 
-✨ FEATURES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. **Import the SDK package** into your Unity project
+2. **Initialize the SDK** in your game:
+   ```csharp
+   MultiversedSDK.Instance.Initialize("your-game-id", "your-api-key");
+   ```
+3. **Connect wallet**:
+   ```csharp
+   MultiversedSDK.Instance.ConnectWallet(
+       onSuccess: (walletAddress) => Debug.Log("Connected: " + walletAddress),
+       onError: (error) => Debug.LogError("Connection failed: " + error)
+   );
+   ```
+4. **Use UI Components** (optional):
+   - Import the "UI Components" sample from Package Manager
+   - Add `TournamentsPage` to your scene
+   - Customize to match your game's theme
 
-🔐 Authentication
+## Features
 
-Game ID + API Key authentication
-Automatic credential validation on initialization
-Secure header injection for all API calls
-🌐 Environment Support
+- ✅ **Wallet Connection**: Connect with Phantom Wallet via deep links
+- ✅ **Tournament Management**: Fetch, display, and register for tournaments
+- ✅ **SPL & SOL Support**: Support for both SPL tokens and SOL tournaments
+- ✅ **Leaderboards**: Get tournament leaderboards and player scores
+- ✅ **Ready-to-Use UI**: Pre-built tournament card and page components
+- ✅ **Automatic Deep Links**: Deep link handling is automatic
 
-Devnet environment for testing
-Mainnet environment for production
-Custom API URL support for local development
-💰 Dual Token Support
+## Samples
 
-SPL token (YIP) tournaments
-SOL token tournaments
-Configurable default token type
-👛 Wallet Integration
+The SDK includes two samples:
 
-Phantom wallet connection via deep links
-Automatic session persistence (PlayerPrefs)
-Transaction signing flow
-Wallet disconnect functionality
-🏆 Tournament Features
+1. **Basic Integration**: Simple example showing SDK initialization and basic usage
+2. **UI Components**: Ready-to-use `TournamentCard` and `TournamentsPage` components
 
-List all tournaments for a game
-Get tournament details by ID
-Register for tournaments (with wallet signing)
-Tournament status checking (Active, Ended, etc.)
-📊 Leaderboard
+Import samples via Unity Package Manager → Multiversed SDK → Samples
 
-Fetch tournament leaderboards
-Player rankings with scores
-Wallet address display helpers
-🎯 Score Submission
+## Android Setup
 
-Submit player scores to tournaments
-Automatic wallet authentication
-🛠️ Developer Tools
+For Android builds, you need to configure deep links:
 
-Unity Editor settings window (Window > Multiversed > SDK Settings)
-Code generation for initialization
-Quick links to dashboard and documentation
-Debug logging toggle
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Copy `Plugins/Android/AndroidManifest.xml` to `Assets/Plugins/Android/` in your Unity project
+2. Replace `multiversed-XXXXXXXX` with your actual deep link scheme (first 8 chars of your gameId)
+3. Example: If your gameId is `"df62e4e4-3b47-4d02-8be8-3cddc9fa12ee"`, use `"multiversed-df62e4e4"`
 
-📖 USAGE EXAMPLE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+See `Plugins/Android/README.md` for detailed instructions.
 
-// Initialize SDK
-var config = new SDKConfig
-{
-Environment = SDKEnvironment.Devnet,
-DefaultTokenType = TokenType.SPL,
-EnableLogging = true,
-CustomApiUrl = "http://localhost:5000\" // For local dev
-};
+## Documentation
 
-MultiversedSDK.Instance.Initialize(gameId, apiKey, config);
+- [UI Components Sample](Samples~/UI%20Components/README.md) - Ready-to-use tournament UI
+- [Android Configuration](Plugins/Android/README.md) - Deep link setup for Android
 
-// Subscribe to events
-MultiversedSDK.Instance.OnInitialized += () => Debug.Log("Ready!");
-MultiversedSDK.Instance.OnWalletConnected += (session) =>
-Debug.Log("Wallet: " + session.WalletAddress);
+## Requirements
 
-// Connect wallet
-MultiversedSDK.Instance.ConnectWallet();
+- Unity 2020.3 LTS or higher
+- Android/iOS build support (for mobile wallet integration)
+- Internet connection for API calls
 
-// Get tournaments
-MultiversedSDK.Instance.GetTournaments(
-onSuccess: (tournaments) => { /* handle / },
-onError: (error) => { / handle */ }
-);
+## Support
 
-// Register for tournament
-MultiversedSDK.Instance.RegisterForTournament(tournamentId,
-onSuccess: (signature) => { /* handle / },
-onError: (error) => { / handle */ }
-);
-
-// Submit score
-MultiversedSDK.Instance.SubmitScore(tournamentId, score,
-onSuccess: () => { /* handle / },
-onError: (error) => { / handle */ }
-);
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔧 CONFIGURATION OPTIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-SDKConfig:
-
-Environment: Devnet | Mainnet
-DefaultTokenType: SPL | SOL
-CustomApiUrl: string (for local development)
-CustomUrlScheme: string (for deep link callbacks)
-EnableLogging: bool
-RequestTimeoutSeconds: int (default: 30)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📋 API ENDPOINTS SUPPORTED
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-POST /api/sdk/verify - Verify SDK credentials
-GET /api/sdk/tournaments - List tournaments
-GET /api/sdk/tournaments/:id - Get tournament details
-POST /api/sdk/tournaments/prepare-registration - Prepare registration tx
-POST /api/sdk/tournaments/confirm-registration - Confirm registration
-GET /api/sdk/tournaments/:id/leaderboard - Get leaderboard
-POST /api/sdk/tournaments/:id/score - Submit score
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📱 PLATFORM SUPPORT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Unity 2020.3 LTS and higher
-Android (with Phantom wallet deep links)
-iOS (with Phantom wallet deep links)
-Standalone (limited wallet support)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🧪 TESTED
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✅ SDK initialization with credentials
-✅ Custom API URL for local development
-✅ Credential verification via API
-✅ Tournament listing (empty and populated)
-✅ Unity 6.0 compatibility
-✅ Assembly definition compilation
-✅ Package Manager import
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📝 NOTES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Renamed Logger to SDKLogger to avoid Unity namespace conflict
-Tournament response uses 'data' field (not 'tournaments')
-Deep link scheme format: multiversed-{first8CharsOfGameId}
-Wallet sessions persist across app restarts via PlayerPrefs
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔜 NEXT STEPS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Test wallet connection on Android device
-Test full tournament registration flow
-Add Android deep link manifest configuration
-Add iOS URL scheme configuration
-Create documentation website
-Publish to Unity Asset Store (optional)
+For issues, questions, or feature requests, contact support@multiversed.io

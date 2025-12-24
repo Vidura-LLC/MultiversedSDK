@@ -285,7 +285,6 @@ namespace Multiversed.Core
 
             var body = new SubmitScoreRequest
             {
-                tournamentId = tournamentId,
                 userPublicKey = walletAddress,
                 score = score,
                 tokenType = (int)tokenType
@@ -304,7 +303,24 @@ namespace Multiversed.Core
                 }
                 else
                 {
-                    callback(false, response);
+                    // Try to parse structured error response for better UX
+                    try
+                    {
+                        var errorResult = JsonHelper.FromJson<ApiResponse>(response);
+                        if (errorResult != null && !string.IsNullOrEmpty(errorResult.message))
+                        {
+                            callback(false, errorResult.message);
+                        }
+                        else
+                        {
+                            callback(false, response);
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        // Fallback to raw response if parsing fails
+                        callback(false, response);
+                    }
                 }
             });
         }
@@ -438,7 +454,6 @@ namespace Multiversed.Core
         [Serializable]
         private class SubmitScoreRequest
         {
-            public string tournamentId;
             public string userPublicKey;
             public int score;
             public int tokenType;
