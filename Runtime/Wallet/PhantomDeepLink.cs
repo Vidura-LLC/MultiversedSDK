@@ -19,12 +19,13 @@ namespace Multiversed.Wallet
         private static string _publicKeyBase58;
         private static byte[] _boxKey; // Pre-computed box key for current Phantom session
 
-        public static void Initialize(string appScheme, bool isDevnet = true)
+        public static void Initialize(string appScheme, bool isDevnet = true, string appUrl = null)
         {
             _appScheme = appScheme;
             _cluster = isDevnet ? "devnet" : "mainnet-beta";
+            _appUrl = !string.IsNullOrEmpty(appUrl) ? appUrl : "https://multiversed.io";
             GenerateKeyPair();
-            Debug.Log("[Phantom] Init: scheme=" + _appScheme);
+            Debug.Log("[Phantom] Init: scheme=" + _appScheme + ", appUrl=" + _appUrl);
         }
 
         private static void GenerateKeyPair()

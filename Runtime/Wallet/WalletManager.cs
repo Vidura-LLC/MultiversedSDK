@@ -56,9 +56,12 @@ namespace Multiversed.Wallet
             }
 
             bool isDevnet = _config.Environment == SDKEnvironment.Devnet;
+            string appUrl = !string.IsNullOrEmpty(_config.CustomAppUrl) 
+                ? _config.CustomAppUrl 
+                : null; // Use default in PhantomDeepLink
 
             // Initialize static PhantomDeepLink
-            PhantomDeepLink.Initialize(urlScheme, isDevnet);
+            PhantomDeepLink.Initialize(urlScheme, isDevnet, appUrl);
 
             SDKLogger.Log("WalletManager initialized with scheme: " + urlScheme);
         }

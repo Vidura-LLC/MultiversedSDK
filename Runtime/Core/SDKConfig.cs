@@ -25,6 +25,12 @@ namespace Multiversed.Core
         public string CustomUrlScheme { get; set; } = null;
 
         /// <summary>
+        /// Custom app URL for Phantom wallet deep links
+        /// If null, defaults to "https://multiversed.io"
+        /// </summary>
+        public string CustomAppUrl { get; set; } = null;
+
+        /// <summary>
         /// Token type for tournaments (SOL or SPL)
         /// </summary>
         public TokenType DefaultTokenType { get; set; } = TokenType.SPL;
