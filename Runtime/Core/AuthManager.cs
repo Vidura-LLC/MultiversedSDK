@@ -1,3 +1,4 @@
+// File: Runtime/Core/AuthManager.cs
 using Multiversed.Utils;
 
 namespace Multiversed.Core

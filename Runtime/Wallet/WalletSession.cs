@@ -1,3 +1,4 @@
+// File: Runtime/Wallet/WalletSession.cs
 using UnityEngine;
 using Multiversed.Utils;
 

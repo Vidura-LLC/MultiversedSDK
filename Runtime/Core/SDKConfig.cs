@@ -1,3 +1,4 @@
+// File: Runtime/Core/SDKConfig.cs
 namespace Multiversed.Core
 {
     /// <summary>

@@ -1,3 +1,4 @@
+// File: Editor/MultiversedSettingsWindow.cs
 using UnityEngine;
 using UnityEditor;
 
