@@ -1,3 +1,4 @@
+// File: Runtime/Wallet/PhantomDeepLink.cs
 using System;
 using System.Text;
 using UnityEngine;
@@ -18,12 +19,13 @@ namespace Multiversed.Wallet
         private static string _publicKeyBase58;
         private static byte[] _boxKey; // Pre-computed box key for current Phantom session
 
-        public static void Initialize(string appScheme, bool isDevnet = true)
+        public static void Initialize(string appScheme, bool isDevnet = true, string appUrl = null)
         {
             _appScheme = appScheme;
             _cluster = isDevnet ? "devnet" : "mainnet-beta";
+            _appUrl = !string.IsNullOrEmpty(appUrl) ? appUrl : "https://multiversed.io";
             GenerateKeyPair();
-            Debug.Log("[Phantom] Init: scheme=" + _appScheme);
+            Debug.Log("[Phantom] Init: scheme=" + _appScheme + ", appUrl=" + _appUrl);
         }
 
         private static void GenerateKeyPair()
@@ -36,15 +38,33 @@ namespace Multiversed.Wallet
             Debug.Log("[Phantom] Public key: " + _publicKeyBase58);
         }
 
-        public static string GetConnectUrl()
-        {
-            if (string.IsNullOrEmpty(_appScheme)) return null;
-            return "phantom://v1/connect" +
-                   "?app_url=" + Uri.EscapeDataString(_appUrl) +
-                   "&dapp_encryption_public_key=" + _publicKeyBase58 +
-                   "&redirect_link=" + Uri.EscapeDataString(_appScheme + "://onConnect") +
-                   "&cluster=" + _cluster;
-        }
+public static string GetConnectUrl()
+{
+    if (string.IsNullOrEmpty(_appScheme)) 
+    {
+        Debug.LogError("[Phantom] App scheme not initialized");
+        return null;
+    }
+    
+    string redirectLink = _appScheme + "://onConnect";
+    
+    Debug.Log("[Phantom] Building connect URL:");
+    Debug.Log("[Phantom]   App URL: " + _appUrl);
+    Debug.Log("[Phantom]   Public Key: " + _publicKeyBase58);
+    Debug.Log("[Phantom]   Redirect: " + redirectLink);
+    Debug.Log("[Phantom]   Cluster: " + _cluster);
+    
+    // Use HTTPS universal link format (more reliable than phantom://)
+    string url = "https://phantom.app/ul/v1/connect" +
+           "?app_url=" + Uri.EscapeDataString(_appUrl) +
+           "&dapp_encryption_public_key=" + _publicKeyBase58 +
+           "&redirect_link=" + Uri.EscapeDataString(redirectLink) +
+           "&cluster=" + _cluster;
+    
+    Debug.Log("[Phantom] Connect URL: " + url);
+    
+    return url;
+}
 
         public static string GetSignAndSendTransactionUrl(string base64Transaction, string session)
         {
@@ -132,13 +152,15 @@ namespace Multiversed.Wallet
                    "&payload=" + payloadB58;
         }
 
-        public static string GetDisconnectUrl(string session)
-        {
-            if (string.IsNullOrEmpty(_appScheme)) return null;
-            return "phantom://v1/disconnect" +
-                   "?dapp_encryption_public_key=" + _publicKeyBase58 +
-                   "&redirect_link=" + Uri.EscapeDataString(_appScheme + "://onDisconnect");
-        }
+public static string GetDisconnectUrl(string session)
+{
+    if (string.IsNullOrEmpty(_appScheme)) return null;
+    
+    // Use HTTPS universal link format
+    return "https://phantom.app/ul/v1/disconnect" +
+           "?dapp_encryption_public_key=" + _publicKeyBase58 +
+           "&redirect_link=" + Uri.EscapeDataString(_appScheme + "://onDisconnect");
+}
 
         public static bool ParseConnectResponse(string url, out string publicKey, out string session, out string error)
         {

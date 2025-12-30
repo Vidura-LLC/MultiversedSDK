@@ -1,3 +1,4 @@
+// File: Runtime/MultiversedSDK.cs
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -54,11 +55,8 @@ namespace Multiversed
         {
             get
             {
-                if (_authManager != null)
-                {
-                    return _authManager.IsInitialized;
-                }
-                return false;
+                // SDK is only truly initialized if credentials are verified
+                return _credentialsVerified && _authManager != null && _authManager.IsInitialized;
             }
         }
 
@@ -99,6 +97,7 @@ namespace Multiversed
         private AuthManager _authManager;
         private ApiClient _apiClient;
         private WalletManager _walletManager;
+        private bool _credentialsVerified = false;
 
         #endregion
 
@@ -128,8 +127,16 @@ namespace Multiversed
         {
             if (!pauseStatus)
             {
-                CheckForDeepLink();
+                // App resumed - check for deep link after a short delay to ensure intent is ready
+                StartCoroutine(CheckForDeepLinkDelayed());
             }
+        }
+
+        private IEnumerator CheckForDeepLinkDelayed()
+        {
+            // Wait a bit for Android intent to be ready
+            yield return new WaitForSeconds(0.3f);
+            CheckForDeepLink();
         }
 
 #if UNITY_EDITOR
@@ -151,10 +158,20 @@ namespace Multiversed
 
         public void Initialize(string gameId, string apiKey, SDKConfig config)
         {
+            // If already fully initialized (credentials verified), warn and return
             if (IsInitialized)
             {
                 SDKLogger.LogWarning("SDK already initialized");
                 return;
+            }
+
+            // If partially initialized (auth manager exists but verification failed), clear it
+            if (_authManager != null && !_credentialsVerified)
+            {
+                SDKLogger.Log("Previous initialization failed. Clearing state and reinitializing...");
+                _authManager.Clear();
+                _authManager = null;
+                _apiClient = null;
             }
 
             if (config != null)
@@ -167,6 +184,9 @@ namespace Multiversed
             }
 
             SDKLogger.EnableLogging = _config.EnableLogging;
+
+            // Reset verification flag
+            _credentialsVerified = false;
 
             // Initialize auth manager
             _authManager = new AuthManager();
@@ -217,6 +237,7 @@ namespace Multiversed
             {
                 if (success)
                 {
+                    _credentialsVerified = true;
                     SDKLogger.Log("SDK credentials verified");
                     if (OnInitialized != null)
                     {
@@ -225,6 +246,12 @@ namespace Multiversed
                 }
                 else
                 {
+                    // Clear auth state on verification failure to allow re-initialization
+                    _credentialsVerified = false;
+                    if (_authManager != null)
+                    {
+                        _authManager.Clear();
+                    }
                     SDKLogger.LogError("Credential verification failed: " + message);
                     if (OnError != null)
                     {
@@ -240,6 +267,22 @@ namespace Multiversed
             {
                 _apiClient.SetCustomBaseUrl(url);
             }
+        }
+
+        /// <summary>
+        /// Reset SDK state to allow re-initialization
+        /// </summary>
+        public void Reset()
+        {
+            _credentialsVerified = false;
+            if (_authManager != null)
+            {
+                _authManager.Clear();
+                _authManager = null;
+            }
+            _apiClient = null;
+            _walletManager = null;
+            SDKLogger.Log("SDK state reset");
         }
 
         #endregion
@@ -291,19 +334,118 @@ namespace Multiversed
 
         public void HandleDeepLink(string url)
         {
+            SDKLogger.Log("MultiversedSDK.HandleDeepLink called with: " + url);
+            
+            // Bring app to foreground on Android
+            #if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                using (AndroidJavaObject activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+                {
+                    if (activity != null)
+                    {
+                        // Get window and bring to front
+                        using (AndroidJavaObject window = activity.Call<AndroidJavaObject>("getWindow"))
+                        {
+                            if (window != null)
+                            {
+                                window.Call("addFlags", 0x00000020); // FLAG_SHOW_WHEN_LOCKED
+                                window.Call("addFlags", 0x00000008); // FLAG_DISMISS_KEYGUARD
+                            }
+                        }
+                        // Request focus
+                        activity.Call("onResume");
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                SDKLogger.LogWarning("Error bringing app to foreground: " + e.Message);
+            }
+            #endif
+
             if (_walletManager != null)
             {
                 _walletManager.HandleDeepLink(url);
+            }
+            else
+            {
+                SDKLogger.LogWarning("WalletManager is null, cannot handle deep link");
             }
         }
 
         private void CheckForDeepLink()
         {
+            SDKLogger.Log("[MultiversedSDK] CheckForDeepLink called");
+            
+            // Check Unity's absoluteURL first
             string deepLink = Application.absoluteURL;
-            if (!string.IsNullOrEmpty(deepLink))
+            SDKLogger.Log("[MultiversedSDK] Application.absoluteURL: " + (deepLink ?? "null"));
+            if (!string.IsNullOrEmpty(deepLink) && deepLink.Contains("multiversed-"))
             {
+                SDKLogger.Log("[MultiversedSDK] Found deep link from Application.absoluteURL: " + deepLink);
                 HandleDeepLink(deepLink);
+                return;
             }
+
+            // On Android, also check the intent data
+            #if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                using (AndroidJavaObject activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+                {
+                    if (activity != null)
+                    {
+                        using (AndroidJavaObject intent = activity.Call<AndroidJavaObject>("getIntent"))
+                        {
+                            if (intent != null)
+                            {
+                                string action = intent.Call<string>("getAction");
+                                SDKLogger.Log("[MultiversedSDK] Intent action: " + (action ?? "null"));
+                                
+                                if (action == "android.intent.action.VIEW" || action == "android.intent.action.MAIN")
+                                {
+                                    using (AndroidJavaObject uri = intent.Call<AndroidJavaObject>("getData"))
+                                    {
+                                        if (uri != null)
+                                        {
+                                            string url = uri.Call<string>("toString");
+                                            SDKLogger.Log("[MultiversedSDK] Intent data URI: " + url);
+                                            if (!string.IsNullOrEmpty(url) && url.Contains("multiversed-"))
+                                            {
+                                                SDKLogger.Log("[MultiversedSDK] Found deep link from Android intent: " + url);
+                                                HandleDeepLink(url);
+                                                return;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            SDKLogger.Log("[MultiversedSDK] Intent data URI is null");
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                SDKLogger.Log("[MultiversedSDK] Intent is null");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        SDKLogger.Log("[MultiversedSDK] Activity is null");
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                SDKLogger.LogWarning("[MultiversedSDK] Error checking Android intent for deep link: " + e.Message);
+            }
+            #endif
+            
+            SDKLogger.Log("[MultiversedSDK] No deep link found in CheckForDeepLink");
         }
 
         #endregion

@@ -1,3 +1,4 @@
+// File: Runtime/Core/SDKConfig.cs
 namespace Multiversed.Core
 {
     /// <summary>
@@ -22,6 +23,12 @@ namespace Multiversed.Core
         /// If null, defaults to "multiversed-{gameId}"
         /// </summary>
         public string CustomUrlScheme { get; set; } = null;
+
+        /// <summary>
+        /// Custom app URL for Phantom wallet deep links
+        /// If null, defaults to "https://multiversed.io"
+        /// </summary>
+        public string CustomAppUrl { get; set; } = null;
 
         /// <summary>
         /// Token type for tournaments (SOL or SPL)

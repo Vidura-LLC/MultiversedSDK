@@ -1,4 +1,6 @@
+// File: Runtime/Utils/DeepLinkReceiver.cs
 using UnityEngine;
+using System.Collections;
 using Multiversed;
 
 namespace Multiversed.Utils
@@ -36,16 +38,55 @@ namespace Multiversed.Utils
             CheckInitialDeepLink();
         }
 
+        void OnApplicationPause(bool paused)
+        {
+            if (!paused)
+            {
+                // App resumed - check for deep link after a delay
+                StartCoroutine(CheckDeepLinkOnResume());
+            }
+        }
+
+        void OnApplicationFocus(bool hasFocus)
+        {
+            if (hasFocus)
+            {
+                // App gained focus - check for deep link after a delay
+                StartCoroutine(CheckDeepLinkOnResume());
+            }
+        }
+
+        System.Collections.IEnumerator CheckDeepLinkOnResume()
+        {
+            // Wait a bit for Android intent to be ready
+            yield return new WaitForSeconds(0.5f);
+            CheckForDeepLink();
+        }
+
         void CheckInitialDeepLink()
         {
+            CheckForDeepLink();
+        }
+
+        void CheckForDeepLink()
+        {
+            SDKLogger.Log("[DeepLinkReceiver] Checking for deep link...");
+            
             // Check Unity's built-in URL
-            if (!string.IsNullOrEmpty(Application.absoluteURL))
+            string absoluteUrl = Application.absoluteURL;
+            if (!string.IsNullOrEmpty(absoluteUrl))
             {
-                SDKLogger.Log("[DeepLinkReceiver] Found launch URL: " + Application.absoluteURL);
-                if (Application.absoluteURL.Contains("multiversed-"))
+                SDKLogger.Log("[DeepLinkReceiver] Application.absoluteURL: " + absoluteUrl);
+                if (absoluteUrl.Contains("multiversed-"))
                 {
-                    ProcessUrl(Application.absoluteURL);
+                    SDKLogger.Log("[DeepLinkReceiver] Found deep link in absoluteURL!");
+                    ProcessUrl(absoluteUrl);
+                    return;
                 }
+            }
+            else
+            {
+                SDKLogger.Log("[DeepLinkReceiver] Application.absoluteURL is empty");
             }
 
             // Check Android intent
@@ -54,22 +95,67 @@ namespace Multiversed.Utils
             {
                 using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
                 using (AndroidJavaObject activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
-                using (AndroidJavaObject intent = activity.Call<AndroidJavaObject>("getIntent"))
                 {
-                    if (intent != null)
+                    if (activity != null)
                     {
-                        using (AndroidJavaObject uri = intent.Call<AndroidJavaObject>("getData"))
+                        using (AndroidJavaObject intent = activity.Call<AndroidJavaObject>("getIntent"))
                         {
-                            if (uri != null)
+                            if (intent != null)
                             {
-                                string url = uri.Call<string>("toString");
-                                SDKLogger.Log("[DeepLinkReceiver] Found intent URL: " + url);
-                                if (!string.IsNullOrEmpty(url) && url.Contains("multiversed-"))
+                                string action = intent.Call<string>("getAction");
+                                SDKLogger.Log("[DeepLinkReceiver] Intent action: " + (action ?? "null"));
+                                
+                                if (action == "android.intent.action.VIEW" || action == "android.intent.action.MAIN")
                                 {
-                                    ProcessUrl(url);
+                                    using (AndroidJavaObject uri = intent.Call<AndroidJavaObject>("getData"))
+                                    {
+                                        if (uri != null)
+                                        {
+                                            string url = uri.Call<string>("toString");
+                                            SDKLogger.Log("[DeepLinkReceiver] Intent data URI: " + url);
+                                            if (!string.IsNullOrEmpty(url) && url.Contains("multiversed-"))
+                                            {
+                                                SDKLogger.Log("[DeepLinkReceiver] Found deep link in intent!");
+                                                ProcessUrl(url);
+                                                return;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            SDKLogger.Log("[DeepLinkReceiver] Intent data URI is null");
+                                        }
+                                    }
+                                }
+                                
+                                // Also try getStringExtra for deep link data
+                                try
+                                {
+                                    string extraData = intent.Call<string>("getStringExtra", "android.intent.extra.TEXT");
+                                    if (!string.IsNullOrEmpty(extraData))
+                                    {
+                                        SDKLogger.Log("[DeepLinkReceiver] Intent extra data: " + extraData);
+                                        if (extraData.Contains("multiversed-"))
+                                        {
+                                            SDKLogger.Log("[DeepLinkReceiver] Found deep link in intent extra!");
+                                            ProcessUrl(extraData);
+                                            return;
+                                        }
+                                    }
+                                }
+                                catch (System.Exception e)
+                                {
+                                    SDKLogger.Log("[DeepLinkReceiver] No extra data in intent: " + e.Message);
                                 }
                             }
+                            else
+                            {
+                                SDKLogger.Log("[DeepLinkReceiver] Intent is null");
+                            }
                         }
+                    }
+                    else
+                    {
+                        SDKLogger.Log("[DeepLinkReceiver] Activity is null");
                     }
                 }
             }
@@ -78,6 +164,8 @@ namespace Multiversed.Utils
                 SDKLogger.LogError("[DeepLinkReceiver] Error checking intent: " + e.Message);
             }
             #endif
+            
+            SDKLogger.Log("[DeepLinkReceiver] No deep link found");
         }
 
         // Called from Android native code via UnitySendMessage
@@ -101,6 +189,21 @@ namespace Multiversed.Utils
             if (MultiversedSDK.Instance != null)
             {
                 MultiversedSDK.Instance.HandleDeepLink(url);
+            }
+        }
+
+        /// <summary>
+        /// Manually trigger a deep link check (useful for testing or manual retry)
+        /// </summary>
+        public static void CheckNow()
+        {
+            if (_instance != null)
+            {
+                _instance.CheckForDeepLink();
+            }
+            else
+            {
+                SDKLogger.LogWarning("[DeepLinkReceiver] Instance not available for manual check");
             }
         }
     }
