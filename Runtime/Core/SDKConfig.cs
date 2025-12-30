@@ -44,6 +44,35 @@ namespace Multiversed.Core
         /// Request timeout in seconds
         /// </summary>
         public int RequestTimeoutSeconds { get; set; } = 30;
+
+        /// <summary>
+        /// Enable/disable anonymous usage analytics.
+        /// Analytics help improve the SDK. No personal information is collected.
+        /// Default: true
+        /// </summary>
+        public bool EnableAnalytics { get; set; } = true;
+
+        /// <summary>
+        /// Get API base URL based on environment or custom URL
+        /// </summary>
+        public string GetApiUrl()
+        {
+            // Check for custom URL first
+            if (!string.IsNullOrEmpty(CustomApiUrl))
+            {
+                return CustomApiUrl.TrimEnd('/');
+            }
+
+            // Otherwise use environment
+            if (Environment == SDKEnvironment.Mainnet)
+            {
+                return "https://api.multiversed.io";
+            }
+            else
+            {
+                return "https://devnet-api.multiversed.io";
+            }
+        }
     }
 
     /// <summary>
