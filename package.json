@@ -1,6 +1,6 @@
 {
   "name": "com.multiversed.sdk",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "displayName": "Multiversed SDK",
   "description": "Integrate Multiversed tournaments, wallet connection, and leaderboards into your Unity game.",
   "unity": "2020.3",
