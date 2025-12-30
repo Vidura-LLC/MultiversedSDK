@@ -125,11 +125,20 @@ namespace Multiversed
 
         private void OnApplicationPause(bool pauseStatus)
         {
+            // Handle analytics pause
+            AnalyticsManager.Instance.OnApplicationPause(pauseStatus);
+            
             if (!pauseStatus)
             {
                 // App resumed - check for deep link after a short delay to ensure intent is ready
                 StartCoroutine(CheckForDeepLinkDelayed());
             }
+        }
+
+        private void OnApplicationQuit()
+        {
+            // Flush analytics on quit
+            AnalyticsManager.Instance.OnApplicationQuit();
         }
 
         private IEnumerator CheckForDeepLinkDelayed()
@@ -185,6 +194,15 @@ namespace Multiversed
 
             SDKLogger.EnableLogging = _config.EnableLogging;
 
+            // Initialize analytics FIRST
+            AnalyticsManager.Instance.Initialize(
+                gameId,
+                apiKey,
+                _config.GetApiUrl(),
+                this,  // MonoBehaviour for coroutines
+                _config
+            );
+
             // Reset verification flag
             _credentialsVerified = false;
 
@@ -239,6 +257,10 @@ namespace Multiversed
                 {
                     _credentialsVerified = true;
                     SDKLogger.Log("SDK credentials verified");
+                    
+                    // Track successful init
+                    AnalyticsManager.Instance.Track("sdk_initialized");
+                    
                     if (OnInitialized != null)
                     {
                         OnInitialized();
@@ -252,6 +274,10 @@ namespace Multiversed
                     {
                         _authManager.Clear();
                     }
+                    
+                    // Track failed init
+                    AnalyticsManager.Instance.TrackError("sdk_init_failed", message, "initialization_error");
+                    
                     SDKLogger.LogError("Credential verification failed: " + message);
                     if (OnError != null)
                     {
@@ -304,6 +330,13 @@ namespace Multiversed
                 onSuccess: (session) =>
                 {
                     SDKLogger.Log("Wallet connected: " + session.GetShortAddress());
+                    
+                    // Update analytics with wallet address
+                    AnalyticsManager.Instance.SetWalletAddress(session.WalletAddress);
+                    
+                    // Track wallet connected
+                    AnalyticsManager.Instance.Track("wallet_connected");
+                    
                     if (OnWalletConnected != null)
                     {
                         OnWalletConnected(session);
@@ -312,6 +345,10 @@ namespace Multiversed
                 onError: (error) =>
                 {
                     SDKLogger.LogError("Wallet connection failed: " + error);
+                    
+                    // Track wallet connection failure
+                    AnalyticsManager.Instance.TrackError("wallet_connect_failed", error, "wallet_error");
+                    
                     if (OnError != null)
                     {
                         OnError(error);
@@ -326,6 +363,10 @@ namespace Multiversed
             {
                 _walletManager.Disconnect();
             }
+            
+            // Track disconnection
+            AnalyticsManager.Instance.Track("wallet_disconnected");
+            
             if (OnWalletDisconnected != null)
             {
                 OnWalletDisconnected();
@@ -472,6 +513,12 @@ namespace Multiversed
             {
                 if (tournaments != null)
                 {
+                    // Track tournaments fetched (lower priority)
+                    AnalyticsManager.Instance.Track("tournaments_fetched", tokenType, new Dictionary<string, object>
+                    {
+                        { "count", tournaments.Length }
+                    });
+                    
                     if (onSuccess != null)
                     {
                         onSuccess(new List<Tournament>(tournaments));
@@ -629,6 +676,13 @@ namespace Multiversed
                     if (success)
                     {
                         SDKLogger.Log("Registered for tournament: " + tournamentId);
+                        
+                        // Track registration with token type
+                        AnalyticsManager.Instance.Track("tournament_registered", tokenType, new Dictionary<string, object>
+                        {
+                            { "tournament_id", tournamentId }
+                        });
+                        
                         if (onSuccess != null)
                         {
                             onSuccess(signature);
@@ -640,6 +694,14 @@ namespace Multiversed
                     }
                     else
                     {
+                        // Track registration failure
+                        AnalyticsManager.Instance.Track("registration_failed", tokenType, new Dictionary<string, object>
+                        {
+                            { "tournament_id", tournamentId },
+                            { "error", message },
+                            { "error_type", "registration_error" }
+                        });
+                        
                         if (onError != null)
                         {
                             onError(message);
@@ -673,6 +735,13 @@ namespace Multiversed
             {
                 if (entries != null)
                 {
+                    // Track leaderboard fetched (lower priority)
+                    AnalyticsManager.Instance.Track("leaderboard_fetched", tokenType, new Dictionary<string, object>
+                    {
+                        { "tournament_id", tournamentId },
+                        { "count", entries.Length }
+                    });
+                    
                     if (onSuccess != null)
                     {
                         onSuccess(new List<LeaderboardEntry>(entries));
@@ -731,6 +800,13 @@ namespace Multiversed
                     if (success)
                     {
                         SDKLogger.Log("Score submitted: " + score);
+                        
+                        // Track score submission
+                        AnalyticsManager.Instance.Track("score_submitted", tokenType, new Dictionary<string, object>
+                        {
+                            { "tournament_id", tournamentId }
+                        });
+                        
                         if (onSuccess != null)
                         {
                             onSuccess();
@@ -742,6 +818,14 @@ namespace Multiversed
                     }
                     else
                     {
+                        // Track score submission failure
+                        AnalyticsManager.Instance.Track("score_submit_failed", tokenType, new Dictionary<string, object>
+                        {
+                            { "tournament_id", tournamentId },
+                            { "error", message },
+                            { "error_type", "score_error" }
+                        });
+                        
                         if (onError != null)
                         {
                             onError(message);
