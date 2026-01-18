@@ -94,9 +94,13 @@ namespace Multiversed.Core
         /// <summary>
         /// Get all tournaments for this game
         /// </summary>
-        public IEnumerator GetTournaments(TokenType tokenType, Action<Tournament[], string> callback)
+        public IEnumerator GetTournaments(TokenType tokenType, Action<Tournament[], string> callback, string walletAddress = null)
         {
             string url = ENDPOINT_TOURNAMENTS + "?tokenType=" + (int)tokenType;
+            if (!string.IsNullOrEmpty(walletAddress))
+            {
+                url += "&walletAddress=" + System.Uri.EscapeDataString(walletAddress);
+            }
 
             yield return GetRequest(url, (success, response) =>
             {

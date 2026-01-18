@@ -143,8 +143,15 @@ namespace Multiversed
 
         private IEnumerator CheckForDeepLinkDelayed()
         {
-            // Wait a bit for Android intent to be ready
+            // Check immediately first
+            CheckForDeepLink();
+            
+            // Then check again after a short delay
             yield return new WaitForSeconds(0.3f);
+            CheckForDeepLink();
+            
+            // Final check after a bit more delay
+            yield return new WaitForSeconds(0.5f);
             CheckForDeepLink();
         }
 
@@ -373,6 +380,42 @@ namespace Multiversed
             }
         }
 
+        /// <summary>
+        /// Sync an existing wallet connection (e.g., from Solana Unity SDK) to MultiversedSDK
+        /// This allows the SDK to use a wallet that was already connected through another system
+        /// </summary>
+        public void SyncExistingWallet(string walletAddress)
+        {
+            if (!IsInitialized)
+            {
+                SDKLogger.LogWarning("SDK not initialized, cannot sync wallet");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(walletAddress))
+            {
+                SDKLogger.LogWarning("Cannot sync empty wallet address");
+                return;
+            }
+
+            if (_walletManager != null && _walletManager.Session != null)
+            {
+                // Sync the wallet address to the SDK's session
+                _walletManager.Session.Connect(walletAddress, null, null);
+                
+                SDKLogger.Log("Synced existing wallet: " + _walletManager.Session.GetShortAddress());
+                
+                // Update analytics
+                AnalyticsManager.Instance.SetWalletAddress(walletAddress);
+                
+                // Trigger wallet connected event
+                if (OnWalletConnected != null)
+                {
+                    OnWalletConnected(_walletManager.Session);
+                }
+            }
+        }
+
         public void HandleDeepLink(string url)
         {
             SDKLogger.Log("MultiversedSDK.HandleDeepLink called with: " + url);
@@ -416,7 +459,10 @@ namespace Multiversed
             }
         }
 
-        private void CheckForDeepLink()
+        /// <summary>
+        /// Manually check for deep link callback (useful when returning from Phantom)
+        /// </summary>
+        public void CheckForDeepLink()
         {
             SDKLogger.Log("[MultiversedSDK] CheckForDeepLink called");
             
@@ -509,6 +555,9 @@ namespace Multiversed
                 return;
             }
 
+            // Pass wallet address if connected to check registration status
+            string walletAddress = IsWalletConnected ? WalletAddress : null;
+
             StartCoroutine(_apiClient.GetTournaments(tokenType, (tournaments, error) =>
             {
                 if (tournaments != null)
@@ -535,7 +584,7 @@ namespace Multiversed
                         OnError(error);
                     }
                 }
-            }));
+            }, walletAddress));
         }
 
         public void GetTournament(string tournamentId, Action<Tournament> onSuccess, Action<string> onError)

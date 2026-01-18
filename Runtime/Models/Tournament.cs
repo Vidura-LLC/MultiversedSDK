@@ -24,6 +24,7 @@ namespace Multiversed.Models
         public string prizePool;
         public string createdBy;
         public string createdAt;
+        public bool isRegistered; // Set by server if walletAddress is provided in query
 
         // Helper to get max participants from either field
         public int GetMaxParticipants()
