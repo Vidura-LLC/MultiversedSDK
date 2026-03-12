@@ -125,6 +125,9 @@ namespace Multiversed
 
         private void OnApplicationPause(bool pauseStatus)
         {
+            // Handle analytics pause
+            AnalyticsManager.Instance.OnApplicationPause(pauseStatus);
+            
             if (!pauseStatus)
             {
                 // App resumed - check for deep link after a short delay to ensure intent is ready
@@ -132,10 +135,23 @@ namespace Multiversed
             }
         }
 
+        private void OnApplicationQuit()
+        {
+            // Flush analytics on quit
+            AnalyticsManager.Instance.OnApplicationQuit();
+        }
+
         private IEnumerator CheckForDeepLinkDelayed()
         {
-            // Wait a bit for Android intent to be ready
+            // Check immediately first
+            CheckForDeepLink();
+            
+            // Then check again after a short delay
             yield return new WaitForSeconds(0.3f);
+            CheckForDeepLink();
+            
+            // Final check after a bit more delay
+            yield return new WaitForSeconds(0.5f);
             CheckForDeepLink();
         }
 
@@ -184,6 +200,15 @@ namespace Multiversed
             }
 
             SDKLogger.EnableLogging = _config.EnableLogging;
+
+            // Initialize analytics FIRST
+            AnalyticsManager.Instance.Initialize(
+                gameId,
+                apiKey,
+                _config.GetApiUrl(),
+                this,  // MonoBehaviour for coroutines
+                _config
+            );
 
             // Reset verification flag
             _credentialsVerified = false;
@@ -239,6 +264,10 @@ namespace Multiversed
                 {
                     _credentialsVerified = true;
                     SDKLogger.Log("SDK credentials verified");
+                    
+                    // Track successful init
+                    AnalyticsManager.Instance.Track("sdk_initialized");
+                    
                     if (OnInitialized != null)
                     {
                         OnInitialized();
@@ -252,6 +281,10 @@ namespace Multiversed
                     {
                         _authManager.Clear();
                     }
+                    
+                    // Track failed init
+                    AnalyticsManager.Instance.TrackError("sdk_init_failed", message, "initialization_error");
+                    
                     SDKLogger.LogError("Credential verification failed: " + message);
                     if (OnError != null)
                     {
@@ -304,6 +337,13 @@ namespace Multiversed
                 onSuccess: (session) =>
                 {
                     SDKLogger.Log("Wallet connected: " + session.GetShortAddress());
+                    
+                    // Update analytics with wallet address
+                    AnalyticsManager.Instance.SetWalletAddress(session.WalletAddress);
+                    
+                    // Track wallet connected
+                    AnalyticsManager.Instance.Track("wallet_connected");
+                    
                     if (OnWalletConnected != null)
                     {
                         OnWalletConnected(session);
@@ -312,6 +352,10 @@ namespace Multiversed
                 onError: (error) =>
                 {
                     SDKLogger.LogError("Wallet connection failed: " + error);
+                    
+                    // Track wallet connection failure
+                    AnalyticsManager.Instance.TrackError("wallet_connect_failed", error, "wallet_error");
+                    
                     if (OnError != null)
                     {
                         OnError(error);
@@ -326,9 +370,49 @@ namespace Multiversed
             {
                 _walletManager.Disconnect();
             }
+            
+            // Track disconnection
+            AnalyticsManager.Instance.Track("wallet_disconnected");
+            
             if (OnWalletDisconnected != null)
             {
                 OnWalletDisconnected();
+            }
+        }
+
+        /// <summary>
+        /// Sync an existing wallet connection (e.g., from Solana Unity SDK) to MultiversedSDK
+        /// This allows the SDK to use a wallet that was already connected through another system
+        /// </summary>
+        public void SyncExistingWallet(string walletAddress)
+        {
+            if (!IsInitialized)
+            {
+                SDKLogger.LogWarning("SDK not initialized, cannot sync wallet");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(walletAddress))
+            {
+                SDKLogger.LogWarning("Cannot sync empty wallet address");
+                return;
+            }
+
+            if (_walletManager != null && _walletManager.Session != null)
+            {
+                // Sync the wallet address to the SDK's session
+                _walletManager.Session.Connect(walletAddress, null, null);
+                
+                SDKLogger.Log("Synced existing wallet: " + _walletManager.Session.GetShortAddress());
+                
+                // Update analytics
+                AnalyticsManager.Instance.SetWalletAddress(walletAddress);
+                
+                // Trigger wallet connected event
+                if (OnWalletConnected != null)
+                {
+                    OnWalletConnected(_walletManager.Session);
+                }
             }
         }
 
@@ -375,7 +459,10 @@ namespace Multiversed
             }
         }
 
-        private void CheckForDeepLink()
+        /// <summary>
+        /// Manually check for deep link callback (useful when returning from Phantom)
+        /// </summary>
+        public void CheckForDeepLink()
         {
             SDKLogger.Log("[MultiversedSDK] CheckForDeepLink called");
             
@@ -468,10 +555,19 @@ namespace Multiversed
                 return;
             }
 
+            // Pass wallet address if connected to check registration status
+            string walletAddress = IsWalletConnected ? WalletAddress : null;
+
             StartCoroutine(_apiClient.GetTournaments(tokenType, (tournaments, error) =>
             {
                 if (tournaments != null)
                 {
+                    // Track tournaments fetched (lower priority)
+                    AnalyticsManager.Instance.Track("tournaments_fetched", tokenType, new Dictionary<string, object>
+                    {
+                        { "count", tournaments.Length }
+                    });
+                    
                     if (onSuccess != null)
                     {
                         onSuccess(new List<Tournament>(tournaments));
@@ -488,7 +584,7 @@ namespace Multiversed
                         OnError(error);
                     }
                 }
-            }));
+            }, walletAddress));
         }
 
         public void GetTournament(string tournamentId, Action<Tournament> onSuccess, Action<string> onError)
@@ -629,6 +725,13 @@ namespace Multiversed
                     if (success)
                     {
                         SDKLogger.Log("Registered for tournament: " + tournamentId);
+                        
+                        // Track registration with token type
+                        AnalyticsManager.Instance.Track("tournament_registered", tokenType, new Dictionary<string, object>
+                        {
+                            { "tournament_id", tournamentId }
+                        });
+                        
                         if (onSuccess != null)
                         {
                             onSuccess(signature);
@@ -640,6 +743,14 @@ namespace Multiversed
                     }
                     else
                     {
+                        // Track registration failure
+                        AnalyticsManager.Instance.Track("registration_failed", tokenType, new Dictionary<string, object>
+                        {
+                            { "tournament_id", tournamentId },
+                            { "error", message },
+                            { "error_type", "registration_error" }
+                        });
+                        
                         if (onError != null)
                         {
                             onError(message);
@@ -673,6 +784,13 @@ namespace Multiversed
             {
                 if (entries != null)
                 {
+                    // Track leaderboard fetched (lower priority)
+                    AnalyticsManager.Instance.Track("leaderboard_fetched", tokenType, new Dictionary<string, object>
+                    {
+                        { "tournament_id", tournamentId },
+                        { "count", entries.Length }
+                    });
+                    
                     if (onSuccess != null)
                     {
                         onSuccess(new List<LeaderboardEntry>(entries));
@@ -731,6 +849,13 @@ namespace Multiversed
                     if (success)
                     {
                         SDKLogger.Log("Score submitted: " + score);
+                        
+                        // Track score submission
+                        AnalyticsManager.Instance.Track("score_submitted", tokenType, new Dictionary<string, object>
+                        {
+                            { "tournament_id", tournamentId }
+                        });
+                        
                         if (onSuccess != null)
                         {
                             onSuccess();
@@ -742,6 +867,14 @@ namespace Multiversed
                     }
                     else
                     {
+                        // Track score submission failure
+                        AnalyticsManager.Instance.Track("score_submit_failed", tokenType, new Dictionary<string, object>
+                        {
+                            { "tournament_id", tournamentId },
+                            { "error", message },
+                            { "error_type", "score_error" }
+                        });
+                        
                         if (onError != null)
                         {
                             onError(message);

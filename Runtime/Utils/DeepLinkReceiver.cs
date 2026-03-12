@@ -42,7 +42,8 @@ namespace Multiversed.Utils
         {
             if (!paused)
             {
-                // App resumed - check for deep link after a delay
+                // App resumed - check for deep link immediately and multiple times
+                SDKLogger.Log("[DeepLinkReceiver] App resumed from pause - checking for deep link");
                 StartCoroutine(CheckDeepLinkOnResume());
             }
         }
@@ -51,14 +52,22 @@ namespace Multiversed.Utils
         {
             if (hasFocus)
             {
-                // App gained focus - check for deep link after a delay
+                // App gained focus - check for deep link immediately and multiple times
+                SDKLogger.Log("[DeepLinkReceiver] App gained focus - checking for deep link");
                 StartCoroutine(CheckDeepLinkOnResume());
             }
         }
 
         System.Collections.IEnumerator CheckDeepLinkOnResume()
         {
-            // Wait a bit for Android intent to be ready
+            // Check immediately first (intent might already be ready)
+            CheckForDeepLink();
+            
+            // Then check again after a short delay (in case intent takes time)
+            yield return new WaitForSeconds(0.3f);
+            CheckForDeepLink();
+            
+            // Final check after a bit more delay (some devices are slower)
             yield return new WaitForSeconds(0.5f);
             CheckForDeepLink();
         }
