@@ -25,6 +25,9 @@ namespace Multiversed.Core
         private const string ENDPOINT_CONFIRM_REGISTRATION = "/api/sdk/tournaments/confirm-registration";
         private const string ENDPOINT_LEADERBOARD = "/api/sdk/tournaments/{0}/leaderboard";
         private const string ENDPOINT_SUBMIT_SCORE = "/api/sdk/tournaments/{0}/score";
+        private const string ENDPOINT_PAY = "/api/sdk/pay";
+        private const string ENDPOINT_PAY_STATUS = "/api/sdk/pay/status";
+        private const string ENDPOINT_TOPUP_URL = "/api/sdk/pay/topup-url";
 
         public ApiClient(AuthManager authManager, SDKConfig config)
         {
@@ -330,6 +333,90 @@ namespace Multiversed.Core
             });
         }
 
+        /// <summary>
+        /// Post a pay request (YIP.pay)
+        /// </summary>
+        public IEnumerator PostPay(PayRequest request, Action<PayResponse, string> callback)
+        {
+            string jsonBody = JsonHelper.ToJson(request);
+
+            yield return PostRequest(ENDPOINT_PAY, jsonBody, (success, response) =>
+            {
+                if (success)
+                {
+                    var result = JsonHelper.FromJson<PayResponse>(response);
+                    if (result != null)
+                    {
+                        callback(result, null);
+                    }
+                    else
+                    {
+                        callback(null, "Failed to parse pay response");
+                    }
+                }
+                else
+                {
+                    callback(null, response);
+                }
+            });
+        }
+
+        /// <summary>
+        /// Get pay intent status
+        /// </summary>
+        public IEnumerator GetPayStatus(string intentId, Action<PayStatusResponse, string> callback)
+        {
+            string url = ENDPOINT_PAY_STATUS + "?intentId=" + System.Uri.EscapeDataString(intentId);
+
+            yield return GetRequest(url, (success, response) =>
+            {
+                if (success)
+                {
+                    var result = JsonHelper.FromJson<PayStatusResponse>(response);
+                    if (result != null)
+                    {
+                        callback(result, null);
+                    }
+                    else
+                    {
+                        callback(null, "Failed to parse pay status response");
+                    }
+                }
+                else
+                {
+                    callback(null, response);
+                }
+            });
+        }
+
+        /// <summary>
+        /// Get Transak widget URL for an existing intent
+        /// </summary>
+        public IEnumerator GetTopUpUrl(string intentId, Action<string, string> callback)
+        {
+            string url = ENDPOINT_TOPUP_URL + "?intentId=" + System.Uri.EscapeDataString(intentId);
+
+            yield return GetRequest(url, (success, response) =>
+            {
+                if (success)
+                {
+                    var result = JsonHelper.FromJson<TopUpUrlResponse>(response);
+                    if (result != null && result.success && !string.IsNullOrEmpty(result.widgetUrl))
+                    {
+                        callback(result.widgetUrl, null);
+                    }
+                    else
+                    {
+                        callback(null, (result != null ? result.message : null) ?? "Failed to get top-up URL");
+                    }
+                }
+                else
+                {
+                    callback(null, response);
+                }
+            });
+        }
+
         #endregion
 
         #region HTTP Request Helpers
@@ -462,6 +549,23 @@ namespace Multiversed.Core
             public string userPublicKey;
             public int score;
             public int tokenType;
+        }
+
+        [Serializable]
+        private class PayRequestBody
+        {
+            public string userId;
+            public string contextType;
+            public string contextId;
+            public int tokenType;
+        }
+
+        [Serializable]
+        private class TopUpUrlResponse
+        {
+            public bool success;
+            public string widgetUrl;
+            public string message;
         }
 
         #endregion
