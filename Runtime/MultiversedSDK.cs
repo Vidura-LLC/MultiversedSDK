@@ -97,6 +97,7 @@ namespace Multiversed
         private AuthManager _authManager;
         private ApiClient _apiClient;
         private WalletManager _walletManager;
+        private Multiversed.Core.Pay.YIPPay _yipPay;
         private bool _credentialsVerified = false;
 
         #endregion
@@ -232,6 +233,8 @@ namespace Multiversed
             // Initialize wallet manager
             _walletManager = new WalletManager(_config, gameId);
 
+            _yipPay = new Multiversed.Core.Pay.YIPPay(_apiClient, _config);
+
             // Initialize DeepLinkReceiver for automatic deep link handling
             InitializeDeepLinkReceiver();
 
@@ -315,6 +318,7 @@ namespace Multiversed
             }
             _apiClient = null;
             _walletManager = null;
+            _yipPay = null;
             SDKLogger.Log("SDK state reset");
         }
 
@@ -886,6 +890,43 @@ namespace Multiversed
                     }
                 }
             ));
+        }
+
+        #endregion
+
+        #region Pay Methods
+
+        public void Pay(
+            string userId,
+            string contextType,
+            string contextId,
+            int tokenType,
+            Action<PayResult> onComplete
+        )
+        {
+            if (!IsInitialized)
+            {
+                onComplete?.Invoke(new PayResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = "SDK not initialized"
+                });
+                return;
+            }
+            // TODO: Track/cancel in-flight Pay coroutine(s) on Reset()/OnDestroy()
+            // to avoid invoking callbacks after the calling scene/UI has been torn down.
+            StartCoroutine(_yipPay.Pay(userId, contextType, contextId, tokenType, onComplete));
+        }
+
+        // Convenience overload using DefaultTokenType from config:
+        public void Pay(
+            string userId,
+            string contextType,
+            string contextId,
+            Action<PayResult> onComplete
+        )
+        {
+            Pay(userId, contextType, contextId, (int)_config.DefaultTokenType, onComplete);
         }
 
         #endregion
