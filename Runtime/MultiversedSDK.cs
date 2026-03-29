@@ -98,6 +98,7 @@ namespace Multiversed
         private ApiClient _apiClient;
         private WalletManager _walletManager;
         private Multiversed.Core.Pay.YIPPay _yipPay;
+        private Multiversed.Core.Auth.YIPAuth _yipAuth;
         private bool _credentialsVerified = false;
 
         #endregion
@@ -234,6 +235,7 @@ namespace Multiversed
             _walletManager = new WalletManager(_config, gameId);
 
             _yipPay = new Multiversed.Core.Pay.YIPPay(_apiClient, _config);
+            _yipAuth = new Multiversed.Core.Auth.YIPAuth(_apiClient, _config);
 
             // Initialize DeepLinkReceiver for automatic deep link handling
             InitializeDeepLinkReceiver();
@@ -319,6 +321,7 @@ namespace Multiversed
             _apiClient = null;
             _walletManager = null;
             _yipPay = null;
+            _yipAuth = null;
             SDKLogger.Log("SDK state reset");
         }
 
@@ -453,6 +456,21 @@ namespace Multiversed
             }
             #endif
 
+            if (TryHandleYIPAuthDeepLink(url, (success, error) =>
+            {
+                if (success)
+                {
+                    SDKLogger.Log("[MultiversedSDK] YIP auth deep link handled");
+                }
+                else
+                {
+                    SDKLogger.LogError("[MultiversedSDK] YIP auth failed: " + error);
+                }
+            }))
+            {
+                return;
+            }
+
             if (_walletManager != null)
             {
                 _walletManager.HandleDeepLink(url);
@@ -473,7 +491,7 @@ namespace Multiversed
             // Check Unity's absoluteURL first
             string deepLink = Application.absoluteURL;
             SDKLogger.Log("[MultiversedSDK] Application.absoluteURL: " + (deepLink ?? "null"));
-            if (!string.IsNullOrEmpty(deepLink) && deepLink.Contains("multiversed-"))
+            if (!string.IsNullOrEmpty(deepLink) && (deepLink.Contains("multiversed-") || deepLink.Contains("yip://auth")))
             {
                 SDKLogger.Log("[MultiversedSDK] Found deep link from Application.absoluteURL: " + deepLink);
                 HandleDeepLink(deepLink);
@@ -504,7 +522,7 @@ namespace Multiversed
                                         {
                                             string url = uri.Call<string>("toString");
                                             SDKLogger.Log("[MultiversedSDK] Intent data URI: " + url);
-                                            if (!string.IsNullOrEmpty(url) && url.Contains("multiversed-"))
+                                            if (!string.IsNullOrEmpty(url) && (url.Contains("multiversed-") || url.Contains("yip://auth")))
                                             {
                                                 SDKLogger.Log("[MultiversedSDK] Found deep link from Android intent: " + url);
                                                 HandleDeepLink(url);
@@ -927,6 +945,59 @@ namespace Multiversed
         )
         {
             Pay(userId, contextType, contextId, (int)_config.DefaultTokenType, onComplete);
+        }
+
+        #endregion
+
+        #region Auth Methods
+
+        public bool IsYIPConnected
+        {
+            get { return _yipAuth != null && _yipAuth.IsConnected; }
+        }
+
+        public string YIPUserId
+        {
+            get { return _yipAuth != null ? _yipAuth.UserId : null; }
+        }
+
+        public string YIPWalletType
+        {
+            get { return _yipAuth != null ? _yipAuth.WalletType : null; }
+        }
+
+        public void YIPLogin(string gameId, string returnScheme = "yip")
+        {
+            if (!IsInitialized)
+            {
+                SDKLogger.LogWarning("[MultiversedSDK] SDK not initialized");
+                return;
+            }
+            if (_yipAuth == null)
+            {
+                SDKLogger.LogWarning("[MultiversedSDK] YIP auth not available");
+                return;
+            }
+            _yipAuth.Login(gameId, returnScheme);
+        }
+
+        public void YIPLogout()
+        {
+            _yipAuth?.Logout();
+        }
+
+        public bool TryHandleYIPAuthDeepLink(string url, Action<bool, string> callback)
+        {
+            if (_yipAuth == null)
+            {
+                return false;
+            }
+            if (string.IsNullOrEmpty(url) || !url.StartsWith("yip://auth"))
+            {
+                return false;
+            }
+            StartCoroutine(_yipAuth.HandleDeepLink(url, callback));
+            return true;
         }
 
         #endregion

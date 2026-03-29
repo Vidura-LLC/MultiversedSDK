@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using Multiversed.Utils;
 using Multiversed.Models;
+using Multiversed.Core.Auth;
 
 namespace Multiversed.Core
 {
@@ -28,6 +29,7 @@ namespace Multiversed.Core
         private const string ENDPOINT_PAY = "/api/sdk/pay";
         private const string ENDPOINT_PAY_STATUS = "/api/sdk/pay/status";
         private const string ENDPOINT_TOPUP_URL = "/api/sdk/pay/topup-url";
+        private const string ENDPOINT_SESSION_EXCHANGE = "/api/sdk/session/exchange";
 
         public ApiClient(AuthManager authManager, SDKConfig config)
         {
@@ -417,6 +419,37 @@ namespace Multiversed.Core
             });
         }
 
+        /// <summary>
+        /// Exchange a short-lived web session token for YIP user id and wallet info.
+        /// </summary>
+        public IEnumerator ExchangeSessionToken(
+            string token,
+            Action<SessionExchangeResponse, string> callback)
+        {
+            var body = new SessionExchangeRequestBody { token = token };
+            string jsonBody = JsonHelper.ToJson(body);
+
+            yield return PostRequest(ENDPOINT_SESSION_EXCHANGE, jsonBody, (success, response) =>
+            {
+                if (success)
+                {
+                    var result = JsonHelper.FromJson<SessionExchangeResponse>(response);
+                    if (result != null && result.success)
+                    {
+                        callback(result, null);
+                    }
+                    else
+                    {
+                        callback(null, result != null ? result.message : "Exchange failed");
+                    }
+                }
+                else
+                {
+                    callback(null, response);
+                }
+            });
+        }
+
         #endregion
 
         #region HTTP Request Helpers
@@ -566,6 +599,12 @@ namespace Multiversed.Core
             public bool success;
             public string widgetUrl;
             public string message;
+        }
+
+        [Serializable]
+        private class SessionExchangeRequestBody
+        {
+            public string token;
         }
 
         #endregion

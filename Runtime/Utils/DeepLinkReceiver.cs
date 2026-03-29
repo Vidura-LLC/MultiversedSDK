@@ -86,7 +86,7 @@ namespace Multiversed.Utils
             if (!string.IsNullOrEmpty(absoluteUrl))
             {
                 SDKLogger.Log("[DeepLinkReceiver] Application.absoluteURL: " + absoluteUrl);
-                if (absoluteUrl.Contains("multiversed-"))
+                if (absoluteUrl.Contains("multiversed-") || absoluteUrl.Contains("yip://auth"))
                 {
                     SDKLogger.Log("[DeepLinkReceiver] Found deep link in absoluteURL!");
                     ProcessUrl(absoluteUrl);
@@ -122,7 +122,7 @@ namespace Multiversed.Utils
                                         {
                                             string url = uri.Call<string>("toString");
                                             SDKLogger.Log("[DeepLinkReceiver] Intent data URI: " + url);
-                                            if (!string.IsNullOrEmpty(url) && url.Contains("multiversed-"))
+                                            if (!string.IsNullOrEmpty(url) && (url.Contains("multiversed-") || url.Contains("yip://auth")))
                                             {
                                                 SDKLogger.Log("[DeepLinkReceiver] Found deep link in intent!");
                                                 ProcessUrl(url);
@@ -143,7 +143,7 @@ namespace Multiversed.Utils
                                     if (!string.IsNullOrEmpty(extraData))
                                     {
                                         SDKLogger.Log("[DeepLinkReceiver] Intent extra data: " + extraData);
-                                        if (extraData.Contains("multiversed-"))
+                                        if (extraData.Contains("multiversed-") || extraData.Contains("yip://auth"))
                                         {
                                             SDKLogger.Log("[DeepLinkReceiver] Found deep link in intent extra!");
                                             ProcessUrl(extraData);
