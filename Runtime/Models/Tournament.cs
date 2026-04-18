@@ -21,10 +21,15 @@ namespace Multiversed.Models
         public int maxParticipants;
         public int max_participants;
         public TokenType tokenType;
+        // Deprecated: prize pool model replaced by reward ladder vault.
+        // Kept for backwards compatibility — will be null on new tournaments.
         public string prizePool;
         public string createdBy;
         public string createdAt;
         public bool isRegistered; // Set by server if walletAddress is provided in query
+        public string rewardLadderId;
+        public string tournamentDistribution;
+        public RewardLadderInfo rewardLadder;
 
         // Helper to get max participants from either field
         public int GetMaxParticipants()
@@ -45,7 +50,13 @@ namespace Multiversed.Models
 
         public bool HasEnded
         {
-            get { return status == "Ended" || status == "Distributed" || status == "Awarded"; }
+            get
+            {
+                return status == "Ended"
+                    || status == "Settled"
+                    || status == "Distributed"
+                    || status == "Awarded";
+            }
         }
     }
 
@@ -89,5 +100,34 @@ namespace Multiversed.Models
         public bool success;
         public string message;
         public string tournamentId;
+    }
+
+    [System.Serializable]
+    public class RewardTierInfo
+    {
+        public int minParticipants;
+        public int maxParticipants;
+        public int winnerCount;
+        public string[] amounts; // lamports as strings
+    }
+
+    [System.Serializable]
+    public class RewardLadderInfo
+    {
+        public string address;
+        public string admin;
+        public string name;
+        public int tierCount;
+        public RewardTierInfo[] tiers;
+        public int tokenType;
+        public bool isActive;
+    }
+
+    [System.Serializable]
+    public class RewardLadderListResponse
+    {
+        public bool success;
+        public RewardLadderInfo[] data;
+        public int count;
     }
 }
